@@ -27,7 +27,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-14 | Split parity: exact build parity, reported source fidelity | done | #67 | #68 |
 | M1-15 | M1 scale-out: no bottleneck or dead end in the live data path | done | #81 | #87, #90, #94 |
 | M1-16 | Data layer boundary: one data-access interface for the rest of the app | done | #82 | #102 |
-| M2-01 | CDK staging stack | todo | #18 |  |
+| M2-01 | CDK staging stack | in progress | #18 |  |
 | M2-02 | Cache layer | done | #19 | #77 |
 | M2-03 | History API | done | #20 | #79 |
 | M2-04 | Live gateway | done | #21 | #80 |
