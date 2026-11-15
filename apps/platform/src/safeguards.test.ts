@@ -33,13 +33,13 @@ afterEach(async () => {
   app = undefined;
 });
 
-async function start() {
+async function start(trustedProxies?: string) {
   const data = new MemoryDataLayer({ instruments: [BTCUSD, ETHUSD], earliest: barTime(T0) });
   const history = new HistoryQuery({ data });
   gateway = new LiveGateway({ data, every: () => () => undefined });
   const access = accessFromEnv({}, { accounts: new MemoryAccountStore(), sessions: new MemorySessionStore() });
   const limits = new RateLimiter({ limits: LIMITS, counter: new MemoryRateCounter(() => NOW_MS), now: () => NOW_MS });
-  app = await buildServer({ history, access, live: gateway, limits, now: () => barTime(T0) });
+  app = await buildServer({ history, access, live: gateway, limits, now: () => barTime(T0), ...(trustedProxies === undefined ? {} : { trustedProxies }) });
   return app;
 }
 
@@ -100,6 +100,21 @@ describe('rate limits', () => {
     expect((await attempt('wrong password!!')).statusCode).toBe(401);
     expect((await attempt(PASSWORD)).statusCode).toBe(200);
     expectLimited(await attempt(PASSWORD), 20);
+  });
+
+  it('behind the ALB and CloudFront, the client address is the first entry from outside the VPC; one a client adds is ignored (M2-01)', async () => {
+    // The test's own connection comes from 127.0.0.1, standing in for the ALB.
+    const a = await start('127.0.0.1, 10.0.0.0/16');
+    await signUp(a, 'sam@example.com');
+    // X-Forwarded-For as the ALB passes it on: anything the client sent, the
+    // client (added by CloudFront), CloudFront's VPC origin (added by the ALB).
+    const attempt = (forwarded: string) =>
+      a.inject({ method: 'POST', url: '/auth/sign-in', headers: { 'x-forwarded-for': forwarded }, payload: { email: 'sam@example.com', password: PASSWORD } });
+    expect((await attempt('203.0.113.7, 10.0.5.9')).statusCode).toBe(200);
+    expect((await attempt('1.2.3.4, 203.0.113.7, 10.0.5.9')).statusCode).toBe(200);
+    expectLimited(await attempt('5.6.7.8, 203.0.113.7, 10.0.5.9'), 20);
+    // Another client has its own count.
+    expect((await attempt('198.51.100.9, 10.0.7.1')).statusCode).toBe(200);
   });
 
   it('sign-ups per client address', async () => {

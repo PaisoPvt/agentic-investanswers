@@ -2,7 +2,8 @@
 // (MinIO locally), the recent-bars cache and the live bus on Redis, and the
 // feed plan. What `pnpm platform` used to wire by hand.
 //
-// Settings, all optional: AIA_S3_ENDPOINT, AIA_S3_REGION, AIA_S3_ACCESS_KEY,
+// Settings, all optional: AIA_S3_ENDPOINT ("aws" for real S3 with the
+// process's own AWS credentials, M2-01), AIA_S3_REGION, AIA_S3_ACCESS_KEY,
 // AIA_S3_SECRET_KEY, AIA_RAW_BUCKET (aia-raw), AIA_COOKED_BUCKET (aia-cooked),
 // AIA_REDIS_URL, AIA_FEED_PLAN.
 
@@ -20,17 +21,29 @@ export interface LocalDataLayerOptions {
   readonly onError?: (what: string, error: Error) => void;
 }
 
-export async function openLocalDataLayer(env: Env = process.env, options: LocalDataLayerOptions = {}): Promise<DataAccess> {
-  const plan = loadFeedPlan(env);
-  const s3 = {
-    endpoint: env['AIA_S3_ENDPOINT'] ?? 'http://127.0.0.1:9000',
-    region: env['AIA_S3_REGION'] ?? 'us-east-1',
+/** The local MinIO by default; real S3 with the process's own AWS credentials when AIA_S3_ENDPOINT is "aws". */
+export function s3Config(env: Env): {
+  readonly endpoint?: string;
+  readonly region: string;
+  readonly credentials?: { readonly accessKeyId: string; readonly secretAccessKey: string };
+} {
+  const endpoint = env['AIA_S3_ENDPOINT'] ?? 'http://127.0.0.1:9000';
+  const region = env['AIA_S3_REGION'] ?? 'us-east-1';
+  if (endpoint === 'aws') return { region };
+  return {
+    endpoint,
+    region,
     // The local MinIO's credentials from docker-compose.yml, unless overridden.
     credentials: {
       accessKeyId: env['AIA_S3_ACCESS_KEY'] ?? 'minio',
       secretAccessKey: env['AIA_S3_SECRET_KEY'] ?? 'minio12345',
     },
   };
+}
+
+export async function openLocalDataLayer(env: Env = process.env, options: LocalDataLayerOptions = {}): Promise<DataAccess> {
+  const plan = loadFeedPlan(env);
+  const s3 = s3Config(env);
   const raw = new S3RawBarStore({ ...s3, bucket: env['AIA_RAW_BUCKET'] ?? 'aia-raw' });
   const cooked = new S3CookedBarStore({ ...s3, bucket: env['AIA_COOKED_BUCKET'] ?? 'aia-cooked' });
   const cache = await RedisRecentBarsCache.connect({
