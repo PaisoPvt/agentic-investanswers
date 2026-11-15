@@ -1,0 +1,29 @@
+{
+  "name": "@aia/infra",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint src",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "synth": "cdk synth --quiet",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.275.0",
+    "constructs": "10.8.1"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1147.0"
+  },
+  "nx": {
+    "tags": [
+      "type:app",
+      "layer:infra"
+    ],
+    "implicitDependencies": [
+      "@aia/app-platform"
+    ]
+  }
+}

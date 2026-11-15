@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.base.json",
+  // aws-cdk-lib's own types are not written for exactOptionalPropertyTypes (Vpc is not an IVpc under it).
+  "compilerOptions": { "exactOptionalPropertyTypes": false },
+  "include": ["src"]
+}
