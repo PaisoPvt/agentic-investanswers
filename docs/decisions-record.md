@@ -9,10 +9,11 @@ Last updated: 2026-11-14.
 ## Fallbacks in effect
 Where something we were waiting for has not arrived, so we use an agreed alternative.
 
-**F-01 · Local environment instead of AWS staging** (2026-11-13)
-- **Why:** AWS account access (owner input OI-20, due 2026-11-10) has not arrived. Sham confirmed on 2026-11-13 that everything stays local until it does.
-- **Affects:** everything runs and is tested on local stand-ins: MinIO for S3, Redis, DynamoDB Local. Demos run locally, including the client demo on 2026-11-13. Deployment (M2-01) waits.
-- **Closes when:** access arrives and the staging stack is deployed. Nothing built so far depends on running locally.
+**F-01 · Local environment instead of AWS staging** (2026-11-13; updated 2026-11-16)
+- **Why:** AWS account access (owner input OI-20, due 2026-11-10) had not arrived. Sham confirmed on 2026-11-13 that everything stays local until it does.
+- **Affects:** everything runs and is tested on local stand-ins: MinIO for S3, Redis, DynamoDB Local. Demos run locally, including the client demo on 2026-11-13.
+- **Since 2026-11-16:** access arrived: three AWS accounts (dev, staging, prod), dev first. The whole AWS setup is written and checked (M2-01, D-13), but the sign-in role we were given cannot create the permissions the apps need, so nothing is deployed yet. We have asked the AWS administrator for that access (OI-31, request in `docs/aws-access-request.md`).
+- **Closes when:** the dev environment is deployed and hydration runs there. Nothing built so far depends on running locally.
 
 **F-03 · Stocks are history only, with no live stream** (2026-11-10)
 - **Why:** the current Massive plan refuses WebSocket access, both real time and 15-minute delayed (OI-28).
@@ -57,7 +58,7 @@ Choices made to keep progress going, each built so it can be swapped later witho
 **T-07 · The chart has no sign-in screen while everything runs locally** (2026-11-14, M2-05)
 - **Why:** everything runs locally until AWS access arrives (F-01). Sham decided on 2026-11-14 that the chart uses local developer access until then, and that the email and password screens are built when the app moves to AWS.
 - **Affects:** locally, the chart is run against the platform in developer access mode, where every request has access to everything. The chart already sends a session token with every request when it has one, so it works unchanged once a sign-in screen gives it one. The sign-in itself (T-01) is in place on the server.
-- **Closes when:** the move to AWS (M2-01) adds the sign-in screens, using the app's own sign-in (T-01) or InvestAnswers' (OI-21).
+- **Closes when:** the sign-in screens are added (M2-14, using the app's own sign-in, T-01, or InvestAnswers', OI-21). The AWS dev environment runs the real sign-in from the start, never developer access (Sham, 2026-11-16), so the screens come before the client uses it.
 
 **T-08 · Every plan can use indicators** (2026-11-14, M3-02)
 - **Why:** the placeholder plans (T-02) only list instruments and timeframes; which plans include which indicators is not decided (OI-21).
@@ -137,6 +138,15 @@ Settled choices the client may ask about.
 - **What:** an agent connects to the platform's MCP endpoint with its read-only agent key (F-04) and gets three tools: list the instruments, get bars, and see its plan. Indicator outputs join as a fourth tool when the chart serves them (M3-05). Built with the official MCP software kit (`@modelcontextprotocol/sdk`), approved by Sham on 2026-11-13.
 - **Why:** the brief asks for agents to read the same data as the chart, with the same plan checks; MCP is what assistants such as Claude use to call tools.
 - **Same rules as the chart:** every tool answers exactly what the API answers, through the same plan checks and rate limits; agents can only read.
+
+**D-13 · How the platform runs on AWS** (2026-11-16, Sham; M2-01)
+- **What:** one AWS setup, described in code (AWS CDK), deployed per account: dev now, staging and prod once their account numbers are known, all in `us-east-1` (N. Virginia: close to InvestAnswers' customers and the data providers; the organisation also blocks Stockholm).
+  - Both apps run as containers on AWS Fargate (ARM, about 20% cheaper): the platform behind a private load balancer, and hydration's live stream as a single writer.
+  - One public address through CloudFront for the chart and the platform. The load balancer is never reachable from the internet.
+  - Bars in S3 (raw bars versioned and never deleted, even if the setup is removed), accounts in DynamoDB with point-in-time backup, hot bars in ElastiCache Serverless with the Valkey engine (the open-source Redis successor, cheaper than Redis), with a spending ceiling.
+  - The Massive key lives in AWS Secrets Manager (about $0.40 a month), readable only by hydration.
+  - **Dev runs without a NAT gateway** to save about $33 a month: its containers have public addresses for outgoing calls but accept connections only from the load balancer. Staging and prod get a NAT gateway.
+- **Why:** the architecture's plan (AWS, CDK), the cheapest setup that keeps raw data safe and nothing exposed. Expected dev cost: about $60 to $75 a month.
 
 ## Closed
 **F-02 · Simple moving average stands in for the ATR indicator** (2026-11-13) · closed 2026-11-13
