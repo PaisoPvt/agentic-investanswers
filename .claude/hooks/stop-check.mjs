@@ -17,10 +17,10 @@ try {
 if (!changed) process.exit(0);
 
 try {
-  let base = "main";
+  let base = "dev";
   try {
-    sh("git rev-parse --verify origin/main");
-    base = "origin/main";
+    sh("git rev-parse --verify origin/dev");
+    base = "origin/dev";
   } catch {}
   sh(`pnpm -s nx affected -t lint test typecheck --base=${base} --output-style=static`);
 } catch (e) {

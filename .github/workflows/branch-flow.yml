@@ -1,0 +1,33 @@
+name: Branch flow
+# Promotion order (Sham, 2026-11-15): every task branch goes into dev; only
+# dev goes into staging; only staging goes into main (production). Rulesets
+# cannot limit a PR's source branch, so this check does, and the staging and
+# main rulesets require it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+jobs:
+  flow:
+    name: Branch flow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the PR's source branch is allowed into its target
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          case "$BASE" in
+            staging) want=dev ;;
+            main) want=staging ;;
+            *) echo "$HEAD -> $BASE: allowed"; exit 0 ;;
+          esac
+          if [ "$HEAD" = "$want" ] && [ "$SAME_REPO" = "true" ]; then
+            echo "$HEAD -> $BASE: allowed"
+          else
+            echo "Only $want may be merged into $BASE (this PR: $HEAD -> $BASE). Task branches go into dev."
+            exit 1
+          fi

@@ -64,6 +64,11 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Affects:** any signed-in user or agent key can list the indicators and change their settings. Settings are still checked by the server against each indicator's limits, and the bars an indicator runs on still follow the plan's instruments and timeframes.
 - **Swap later:** indicator access becomes one more entry in the plans, checked by the same access-policy interface; the routes do not change.
 
+**T-09 · Production needs one approval, which Sham may skip until a reviewer joins** (2026-11-15)
+- **Why:** Sham asked for a review before anything reaches production (`main`), but Sham is the only person with access to the repository, and GitHub does not let anyone approve their own change.
+- **Affects:** changes reach production only in order, development → staging → production, each through a reviewed pull request with the automated checks passing; nothing is pushed straight to staging or production. The production step asks for one approval; for now Sham can merge without it.
+- **Closes when:** a second reviewer has access. Then the skip is removed in the repository settings, with no other change.
+
 ## Postponed decisions
 Open questions, what we assume meanwhile, and the latest date the answer is useful.
 
