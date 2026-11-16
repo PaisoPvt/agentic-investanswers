@@ -17,20 +17,36 @@ export interface Stores {
 }
 
 /** Raw files are keyed by provider; the feed plan says which one per day. */
-export function localStores(
-  plan: FeedPlan,
-  env: NodeJS.ProcessEnv = process.env,
-): Stores {
+/**
+ * Where the stores live: the local MinIO by default, or real S3 with the
+ * process's own AWS credentials (the ECS task role, M2-01) when
+ * AIA_S3_ENDPOINT is "aws", as AIA_DYNAMODB_ENDPOINT does for the users table.
+ */
+export function s3Config(env: NodeJS.ProcessEnv = process.env): {
+  readonly endpoint?: string;
+  readonly region: string;
+  readonly credentials?: { readonly accessKeyId: string; readonly secretAccessKey: string };
+} {
   const endpoint = env['AIA_S3_ENDPOINT'] ?? 'http://127.0.0.1:9000';
-  const s3 = {
+  const region = env['AIA_S3_REGION'] ?? 'us-east-1';
+  if (endpoint === 'aws') return { region };
+  return {
     endpoint,
-    region: env['AIA_S3_REGION'] ?? 'us-east-1',
+    region,
     // The local MinIO's credentials from docker-compose.yml, unless overridden.
     credentials: {
       accessKeyId: env['AIA_S3_ACCESS_KEY'] ?? 'minio',
       secretAccessKey: env['AIA_S3_SECRET_KEY'] ?? 'minio12345',
     },
   };
+}
+
+export function localStores(
+  plan: FeedPlan,
+  env: NodeJS.ProcessEnv = process.env,
+): Stores {
+  const endpoint = env['AIA_S3_ENDPOINT'] ?? 'http://127.0.0.1:9000';
+  const s3 = s3Config(env);
   const raw = new S3RawBarStore({ ...s3, bucket: env['AIA_RAW_BUCKET'] ?? 'aia-raw' });
   const cooked = new S3CookedBarStore({ ...s3, bucket: env['AIA_COOKED_BUCKET'] ?? 'aia-cooked' });
   const minutes = new RawMinuteSource(raw, rawProviderOf(plan), liveProviderOf(plan));

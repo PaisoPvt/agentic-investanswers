@@ -3,7 +3,8 @@
 // Opens the data layer (@aia/data, M1-16: stores on MinIO locally, the cache
 // and live bus on Redis, the feed plan), puts the History API and the live
 // gateway (@aia/serving) over it, and listens. Settings, all optional:
-//   AIA_PORT (8080), AIA_HOST (127.0.0.1), AIA_REDIS_URL, AIA_S3_* and
+//   AIA_PORT (8080), AIA_HOST (127.0.0.1), AIA_TRUSTED_PROXIES (addresses or
+//   CIDR ranges of the proxies in front; the VPC's range on AWS), AIA_REDIS_URL, AIA_S3_* and
 //   AIA_*_BUCKET as for the hydration commands, AIA_FEED_PLAN,
 //   AIA_DEV_AUTH=1 to treat every request as the local developer; otherwise the
 //   app's own sign-in (M2-08) at /auth/*, with accounts and sessions in
@@ -44,6 +45,11 @@ async function usersStores(env: NodeJS.ProcessEnv) {
   };
 }
 
+function trustedProxies(env: NodeJS.ProcessEnv): { trustedProxies?: string } {
+  const text = env['AIA_TRUSTED_PROXIES']?.trim();
+  return text === undefined || text === '' ? {} : { trustedProxies: text };
+}
+
 async function main(): Promise<void> {
   const env = process.env;
   const data = await openLocalDataLayer(env, {
@@ -76,7 +82,7 @@ async function main(): Promise<void> {
   });
   // No indicator is registered until M3-05 brings the simple moving average (decision record D-11).
   const indicators = new IndicatorRegistry([]);
-  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, now: () => barTime(Math.floor(Date.now() / 1000)), logger: true });
+  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, ...trustedProxies(env), now: () => barTime(Math.floor(Date.now() / 1000)), logger: true });
 
   const port = Number(env['AIA_PORT'] ?? 8080);
   const host = env['AIA_HOST'] ?? '127.0.0.1';

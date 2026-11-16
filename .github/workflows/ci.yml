@@ -78,6 +78,18 @@ jobs:
           path: apps/web-chart/test-results/
           retention-days: 7
 
+  # The container image both apps run from on AWS (M2-01), built for ARM as
+  # Fargate runs it, and checked that each app's code loads.
+  image:
+    name: Container image
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t aia:ci .
+      - name: Both apps load
+        run: |
+          docker run --rm aia:ci tsx -e "import('./apps/platform/src/server.ts').then(() => import('./apps/hydration/src/index.ts')).then(() => console.log('platform and hydration load'))"
+
   fixtures-guard:
     name: Fixtures guard
     if: github.event_name == 'pull_request'

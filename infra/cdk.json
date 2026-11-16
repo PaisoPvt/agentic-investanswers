@@ -1,0 +1,9 @@
+{
+  "app": "tsx src/app.ts",
+  "output": "cdk.out",
+  "context": {
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": false,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:stackRelativeExports": true
+  }
+}

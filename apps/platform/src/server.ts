@@ -53,6 +53,14 @@ export interface ServerDeps {
   readonly indicators?: IndicatorCatalog;
   /** Per-user rate limits (M2-10); none when left out. */
   readonly limits?: Limits;
+  /**
+   * Addresses or CIDR ranges of the proxies in front of the platform, comma
+   * separated (on AWS the VPC's range: the ALB and CloudFront's VPC origin
+   * both connect from inside it, M2-01). The client address, used by the
+   * per-address limits, is the first X-Forwarded-For entry from outside
+   * them; anything a client adds further out is ignored. None when left out.
+   */
+  readonly trustedProxies?: string;
   /** Request logging; `{ stream }` sends it to a stream (tests). Session tokens are masked either way. */
   readonly logger?: boolean | { readonly stream: NodeJS.WritableStream };
 }
@@ -93,7 +101,7 @@ function loggerOptions(logger: ServerDeps['logger']): FastifyLoggerOptions | fal
 }
 
 export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: loggerOptions(deps.logger) });
+  const app = Fastify({ logger: loggerOptions(deps.logger), ...(deps.trustedProxies === undefined ? {} : { trustProxy: deps.trustedProxies }) });
   await app.register(compress, { global: true });
   // Client messages are tiny (live-protocol.ts); anything larger is refused by ws itself.
   await app.register(websocket, { options: { maxPayload: LIVE_MAX_CLIENT_MESSAGE * 4 } });

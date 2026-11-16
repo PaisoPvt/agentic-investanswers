@@ -23,7 +23,10 @@
     "e2e": "playwright test -c apps/web-chart/playwright.config.ts",
     "load-live": "tsx --env-file-if-exists=.env apps/platform/src/load-live.ts",
     "owner-inputs": "node scripts/owner-inputs.mjs",
-    "status": "node scripts/status.mjs"
+    "status": "node scripts/status.mjs",
+    "synth": "pnpm --filter @aia/infra synth",
+    "aws": "tsx infra/src/aws.ts",
+    "deploy:dev": "tsx infra/src/aws.ts deploy dev"
   },
   "devDependencies": {
     "@nx/eslint-plugin": "24.0.2",

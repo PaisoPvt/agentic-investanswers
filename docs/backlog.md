@@ -50,6 +50,7 @@ To start a task, ask Claude: "Start task M1-06". It copies the template into `ta
 | M2-11 | Embed in the InvestAnswers site (iframe or web component), domain-locked | B | M2-05 | Loads inside the client's test page only |
 | M2-12 | Themes (light and dark) and mobile layout | B | M2-05 | Playwright screenshots at phone width |
 | M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | B | M2-08 | Reload restores preferences per user |
+| M2-14 | **Chart sign-in screens** (Sham, 2026-11-16; closes decision record T-07): sign up, sign in and sign out in the chart, on the app's own sign-in (M2-08), so the AWS dev environment is usable with the real sign-in | B | M2-05, M2-08 | Playwright: sign up, sign in, the chart loads with the session; sign out returns to the screen; a wrong password shows the server's message |
 
 ## M3: First indicator at parity (groundwork Week 3, port Week 4)
 | ID | Task | → | Done when |

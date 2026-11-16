@@ -20,6 +20,9 @@ coverage/
 fixtures/parity/tradingview/*
 !fixtures/parity/tradingview/.gitkeep
 
+# CDK output (M2-01): templates and a staged copy of the repository for the image
+cdk.out/
+
 # Playwright output (M2-05)
 test-results/
 playwright-report/

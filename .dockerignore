@@ -1,0 +1,20 @@
+# What the container image (Dockerfile, M2-01) must never carry: secrets,
+# local data, licensed parity exports, and build or test output.
+.env
+.env.*
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+coverage
+.nx
+.git
+.github
+.claude
+data
+fixtures
+infra/cdk.out
+docs
+tasks
+*.log
+.DS_Store
