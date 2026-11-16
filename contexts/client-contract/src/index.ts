@@ -24,3 +24,4 @@ export type {
   SettingFieldErrorCode,
   SettingsAccepted,
 } from './domain/indicator-settings.js';
+export type { AccountInfo, SessionResponse } from './domain/auth.js';

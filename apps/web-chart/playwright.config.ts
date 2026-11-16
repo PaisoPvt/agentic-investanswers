@@ -9,6 +9,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PLATFORM_PORT = 8181;
 const CHART_PORT = 4173;
+// A second platform with the real sign-in, and the chart in front of it (M2-14).
+const SIGN_IN_PLATFORM_PORT = 8182;
+const SIGN_IN_CHART_PORT = 4174;
+const SIGN_IN_OUT_DIR = 'node_modules/.cache/e2e-sign-in';
 
 export default defineConfig({
   testDir: './e2e',
@@ -22,7 +26,10 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${CHART_PORT}`,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: '**/sign-in.e2e.ts' },
+    { name: 'sign-in', use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${SIGN_IN_CHART_PORT}` }, testMatch: '**/sign-in.e2e.ts' },
+  ],
   webServer: [
     {
       command: 'pnpm exec tsx ../platform/src/e2e-server.ts',
@@ -34,6 +41,19 @@ export default defineConfig({
       command: `pnpm exec vite build && pnpm exec vite preview --port ${CHART_PORT} --strictPort --host 127.0.0.1`,
       url: `http://127.0.0.1:${CHART_PORT}`,
       env: { AIA_PLATFORM_URL: `http://127.0.0.1:${PLATFORM_PORT}` },
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: 'pnpm exec tsx ../platform/src/e2e-server.ts --sign-in',
+      url: `http://127.0.0.1:${SIGN_IN_PLATFORM_PORT}/health`,
+      env: { AIA_PORT: String(SIGN_IN_PLATFORM_PORT) },
+      reuseExistingServer: false,
+    },
+    {
+      command: `pnpm exec vite build --outDir ${SIGN_IN_OUT_DIR} && pnpm exec vite preview --outDir ${SIGN_IN_OUT_DIR} --port ${SIGN_IN_CHART_PORT} --strictPort --host 127.0.0.1`,
+      url: `http://127.0.0.1:${SIGN_IN_CHART_PORT}`,
+      env: { AIA_PLATFORM_URL: `http://127.0.0.1:${SIGN_IN_PLATFORM_PORT}` },
       reuseExistingServer: false,
       timeout: 120_000,
     },

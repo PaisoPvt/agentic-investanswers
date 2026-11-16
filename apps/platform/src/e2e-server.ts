@@ -13,11 +13,14 @@
 //     POST /e2e/store  { instrument, minute, close? }  that minute is stored
 //                      (with `close`, a last trade changed it): its stored
 //                      bars are announced
-// - Access: local developer mode, everything allowed.
+// - Access: local developer mode, everything allowed; or, with --sign-in
+//   (M2-14), the app's own sign-in on in-memory accounts, every account on a
+//   plan that includes everything.
 //
-//   tsx apps/platform/src/e2e-server.ts   (AIA_PORT, default 8181)
+//   tsx apps/platform/src/e2e-server.ts             (AIA_PORT, default 8181)
+//   tsx apps/platform/src/e2e-server.ts --sign-in
 
-import { accessFromEnv } from '@aia/access';
+import { accessFromEnv, parsePlanBook } from '@aia/access';
 import type { LiveBarUpdate } from '@aia/data';
 import { BTCUSD, ETHUSD, MemoryDataLayer, SimulatedLiveFeed } from '@aia/data';
 import { IndicatorRegistry } from '@aia/indicators';
@@ -145,7 +148,15 @@ class E2ELive {
   }
 }
 
-export async function startE2EServer(port: number): Promise<FastifyInstance> {
+/** Every account on one plan that includes everything, for the sign-in tests. */
+const OPEN_PLANS = parsePlanBook({
+  upgradeUrl: 'https://investanswers.example/upgrade',
+  defaultPlan: 'pro',
+  plans: [{ id: 'pro', name: 'Pro', instruments: 'all', timeframes: 'all' }],
+  assignments: {},
+});
+
+export async function startE2EServer(port: number, options: { readonly signIn?: boolean } = {}): Promise<FastifyInstance> {
   const minutes = new E2EMinutes();
   const data = new MemoryDataLayer({
     instruments: INSTRUMENTS,
@@ -168,7 +179,7 @@ export async function startE2EServer(port: number): Promise<FastifyInstance> {
 
   const app = await buildServer({
     history,
-    access: accessFromEnv({ AIA_DEV_AUTH: '1' }),
+    access: options.signIn === true ? accessFromEnv({}, undefined, OPEN_PLANS) : accessFromEnv({ AIA_DEV_AUTH: '1' }),
     live,
     catalog: data,
     indicators: new IndicatorRegistry([settingsDemo]),
@@ -205,8 +216,9 @@ export async function startE2EServer(port: number): Promise<FastifyInstance> {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env['AIA_PORT'] ?? 8181);
-  const app = await startE2EServer(port);
-  console.log(`e2e platform on http://127.0.0.1:${port} (made-up bars, AIA_DEV_AUTH)`);
+  const signIn = process.argv.includes('--sign-in');
+  const app = await startE2EServer(port, { signIn });
+  console.log(`e2e platform on http://127.0.0.1:${port} (made-up bars, ${signIn ? 'sign-in' : 'AIA_DEV_AUTH'})`);
   const shutdown = () => void app.close().then(() => process.exit(0));
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);

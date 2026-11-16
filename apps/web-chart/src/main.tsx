@@ -1,4 +1,5 @@
-// Browser entry: one platform client and one live connection per tab, then the app.
+// Browser entry: one platform client and one live connection per tab, then
+// the sign-in check (M2-14) and the app.
 
 import { createRoot } from 'react-dom/client';
 
@@ -6,6 +7,7 @@ import type { ConnectionState } from './data/live-connection.js';
 import { LiveConnection, browserSocket } from './data/live-connection.js';
 import { PlatformClient, storedToken } from './data/platform-client.js';
 import { App } from './ui/App.js';
+import { AuthGate } from './ui/AuthGate.js';
 import type { StateSource } from './ui/App.js';
 
 let state: ConnectionState = 'connecting';
@@ -30,4 +32,6 @@ const live = new LiveConnection({
 });
 
 const root = document.getElementById('root');
-if (root !== null) createRoot(root).render(<App client={client} live={live} connection={connection} />);
+if (root !== null) {
+  createRoot(root).render(<AuthGate client={client}>{(session) => <App client={client} live={live} connection={connection} session={session} />}</AuthGate>);
+}

@@ -6,6 +6,8 @@
 import type { InstrumentInfo } from '@aia/client-contract';
 import type { Timeframe } from '@aia/shared-kernel';
 
+import type { Session } from './AuthGate.js';
+
 export interface ToolbarProps {
   readonly instruments: readonly InstrumentInfo[];
   readonly instrument: InstrumentInfo;
@@ -15,9 +17,11 @@ export interface ToolbarProps {
   readonly indicators?: readonly { readonly id: string; readonly name: string }[];
   /** Opens the settings dialog of the chosen indicator. */
   readonly onIndicator?: (id: string) => void;
+  /** The signed-in account and Sign out (M2-14); none in developer access. */
+  readonly session?: Session | undefined;
 }
 
-export function Toolbar({ instruments, instrument, timeframe, onInstrument, onTimeframe, indicators = [], onIndicator }: ToolbarProps) {
+export function Toolbar({ instruments, instrument, timeframe, onInstrument, onTimeframe, indicators = [], onIndicator, session }: ToolbarProps) {
   return (
     <div className="toolbar">
       <select aria-label="Instrument" data-testid="instrument" value={instrument.symbol} onChange={(e) => onInstrument(e.target.value)}>
@@ -56,6 +60,14 @@ export function Toolbar({ instruments, instrument, timeframe, onInstrument, onTi
             </option>
           ))}
         </select>
+      )}
+      {session !== undefined && (
+        <div className="account">
+          <span data-testid="account-email">{session.account.email}</span>
+          <button type="button" data-testid="sign-out" onClick={session.signOut}>
+            Sign out
+          </button>
+        </div>
       )}
     </div>
   );
