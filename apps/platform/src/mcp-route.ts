@@ -36,6 +36,16 @@ function readsFor(queries: ReadQueries, principal: Principal): AgentReadPort {
       ),
     instruments: async () => asResult(await queries.instruments(principal)),
     plan: async () => asResult(await queries.plan(principal)),
+    indicators: async () => asResult(await queries.indicators()),
+    indicatorOutput: async ({ indicator, instrument, tf, settings, limit }) =>
+      asResult(
+        await queries.indicatorOutputs(principal, indicator, {
+          instrument,
+          timeframe: tf,
+          ...(settings === undefined ? {} : { settings }),
+          ...(limit === undefined ? {} : { limit }),
+        }),
+      ),
   };
 }
 

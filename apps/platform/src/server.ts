@@ -12,6 +12,8 @@
 //   POST /mcp   read-only MCP tools for agents (M4-02); see mcp-route.ts
 //   GET /indicators, POST /indicators/:id/settings   settings dialogs and the server-side
 //               settings check (M3-02), when indicators are given; see indicator-routes.ts
+//   POST /indicators/:id/outputs   an indicator's drawn points (M3-05), when an indicator
+//               runner is given too
 //   /auth/*     the app's own sign-in (M2-08) and agent keys (M4-01), when configured;
 //               see auth-routes.ts and agent-key-routes.ts
 //
@@ -31,8 +33,9 @@ import type { FastifyInstance, FastifyLoggerOptions, FastifyRequest } from 'fast
 
 import { mountAgentKeyRoutes } from './agent-key-routes.js';
 import { mountAuthRoutes } from './auth-routes.js';
+import type { IndicatorRunner } from './indicator-outputs.js';
 import type { IndicatorCatalog } from './indicator-routes.js';
-import { mountIndicatorRoutes } from './indicator-routes.js';
+import { mountIndicatorRoutes, mountOutputsRoute } from './indicator-routes.js';
 import { mountMcpRoute } from './mcp-route.js';
 import type { Limits } from './rate-limit.js';
 import { refusedForRate } from './rate-limit.js';
@@ -51,6 +54,8 @@ export interface ServerDeps {
   readonly catalog?: Pick<DataAccess, 'instruments' | 'whyNotServed'>;
   /** The indicators users may add, for GET /indicators and the settings check (M3-02); mounted when given. */
   readonly indicators?: IndicatorCatalog;
+  /** Runs them (the indicator engine, M3-04), for POST /indicators/:id/outputs and the MCP tool (M3-05). */
+  readonly indicatorRunner?: IndicatorRunner;
   /** Per-user rate limits (M2-10); none when left out. */
   readonly limits?: Limits;
   /**
@@ -109,7 +114,8 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   app.get('/health', () => ({ ok: true }));
 
   const limits = deps.limits;
-  const reads = new ReadQueries({ history: deps.history, policy: deps.access.policy, now: deps.now, catalog: deps.catalog });
+  const indicators = deps.indicators !== undefined && deps.indicatorRunner !== undefined ? { catalog: deps.indicators, runner: deps.indicatorRunner } : undefined;
+  const reads = new ReadQueries({ history: deps.history, policy: deps.access.policy, now: deps.now, catalog: deps.catalog, indicators });
   if (deps.access.signIn !== undefined) mountAuthRoutes(app, deps.access.signIn, limits);
   if (deps.access.agentKeys !== undefined) mountAgentKeyRoutes(app, deps.access.agentKeys, deps.access.principals, limits);
 
@@ -141,6 +147,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
 
   mountMcpRoute(app, reads, deps.access.principals, limits);
   if (deps.indicators !== undefined) mountIndicatorRoutes(app, deps.indicators, deps.access.principals, limits);
+  if (indicators !== undefined) mountOutputsRoute(app, reads, deps.access.principals, limits);
 
   const live = deps.live;
   if (live !== undefined) {

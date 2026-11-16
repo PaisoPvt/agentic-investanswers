@@ -16,7 +16,12 @@ function toolResult(result: ReadResult<unknown>) {
       structuredContent: { result: result.value },
     };
   }
-  const error = { code: result.code, message: result.message, ...(result.upgradeUrl === undefined ? {} : { upgradeUrl: result.upgradeUrl }) };
+  const error = {
+    code: result.code,
+    message: result.message,
+    ...(result.upgradeUrl === undefined ? {} : { upgradeUrl: result.upgradeUrl }),
+    ...(result.fields === undefined ? {} : { fields: result.fields }),
+  };
   return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error }) }] };
 }
 

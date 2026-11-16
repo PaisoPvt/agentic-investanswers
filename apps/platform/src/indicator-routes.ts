@@ -4,6 +4,10 @@
 //
 //   GET  /indicators                  200 { indicators: [{ id, name, dialog }] }
 //   POST /indicators/:id/settings     { settings }  200 SettingsAccepted · 400 invalid_settings · 404
+//   POST /indicators/:id/outputs      { instrument, timeframe, settings?, limit? }  200 IndicatorOutputsResponse
+//                                     · 400 bad_parameter, limit_too_large, invalid_settings · 403 forbidden
+//                                     · 404 not_found, unknown_instrument · 409 timeframe_not_served (M3-05;
+//                                     the query is ReadQueries.indicatorOutputs, shared with the MCP tool)
 //
 // Every request carries a principal (CLAUDE.md rule 4) and counts as one read.
 // The placeholder plans (decision record T-02) say nothing about indicators,
@@ -19,6 +23,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { Limits } from './rate-limit.js';
 import { refusedForRate } from './rate-limit.js';
+import type { ReadQueries } from './read-queries.js';
 
 const error = (code: string, message: string) => ({ error: { code, message } });
 
@@ -81,5 +86,16 @@ export function mountIndicatorRoutes(app: FastifyInstance, catalog: IndicatorCat
     const settings = body === null || body === undefined ? {} : (body['settings'] ?? {});
     const outcome = acceptSettings(catalog, request.params.id, settings);
     return outcome.ok ? outcome.value : reply.code(outcome.status).send(outcome.body);
+  });
+}
+
+/** POST /indicators/:id/outputs (M3-05): the plan for that instrument and timeframe is checked as for /bars. */
+export function mountOutputsRoute(app: FastifyInstance, reads: Pick<ReadQueries, 'indicatorOutputs'>, principals: PrincipalResolverPort, limits?: Limits): void {
+  app.post<{ Params: { id: string } }>('/indicators/:id/outputs', { bodyLimit }, async (request, reply) => {
+    const principal = await principals.resolve({ authorization: request.headers.authorization });
+    if (principal === undefined) return reply.code(401).send(error('unauthorized', 'sign in to draw indicators'));
+    if (limits !== undefined && (await refusedForRate(reply, await limits.checkReads(principal)))) return reply;
+    const outcome = await reads.indicatorOutputs(principal, request.params.id, request.body ?? {});
+    return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
   });
 }

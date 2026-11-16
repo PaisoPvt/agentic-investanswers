@@ -10,6 +10,8 @@
 //   app's own sign-in (M2-08) at /auth/*, with accounts and sessions in
 //   DynamoDB: AIA_DYNAMODB_ENDPOINT (the local one, http://127.0.0.1:8000;
 //   "aws" for AWS itself), AIA_USERS_TABLE (aia-users).
+//   AIA_INDICATORS: the indicator modules to load (M3-05, load-indicators.ts),
+//   for example ../agentic-investanswers-indicators/src/index.ts; none without it.
 //
 // Exits 2 on a setup error.
 
@@ -25,10 +27,13 @@ import {
   loadRateLimits,
 } from '@aia/access';
 import { openLocalDataLayer } from '@aia/data';
-import { IndicatorRegistry } from '@aia/indicators';
+import { IndicatorEngine, RedisIndicatorOutputCache } from '@aia/indicators';
 import { HistoryQuery, LiveGateway } from '@aia/serving';
 import { barTime } from '@aia/shared-kernel';
 
+import { IndicatorBars } from './indicator-bars.js';
+import type { IndicatorRunner } from './indicator-outputs.js';
+import { indicatorModules, loadIndicators } from './load-indicators.js';
 import { buildServer } from './server.js';
 
 /** Account and session stores in DynamoDB; locally the table is created if missing (CDK creates it in AWS). */
@@ -80,9 +85,22 @@ async function main(): Promise<void> {
     now: () => Date.now(),
     onError: (failure) => console.error(`rate limits: ${failure.message} (request let through)`),
   });
-  // No indicator is registered until M3-05 brings the simple moving average (decision record D-11).
-  const indicators = new IndicatorRegistry([]);
-  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, ...trustedProxies(env), now: () => barTime(Math.floor(Date.now() / 1000)), logger: true });
+  const now = () => barTime(Math.floor(Date.now() / 1000));
+  // Indicator source lives outside this repo (CLAUDE.md rule 5); it is loaded from AIA_INDICATORS.
+  const indicators = await loadIndicators(indicatorModules(env));
+  console.log(`indicators: ${indicators.list().map((d) => `${d.id} v${d.version}`).join(', ') || 'none (set AIA_INDICATORS)'}`);
+  const indicatorCache = await RedisIndicatorOutputCache.connect({
+    url: env['AIA_REDIS_URL'],
+    reconnect: 'forever',
+    onError: (failure) => console.error(`redis (indicator outputs): ${failure.message} (indicators are recomputed meanwhile)`),
+  });
+  const indicatorBars = new IndicatorBars({ data, now });
+  const engine = new IndicatorEngine({ registry: indicators, bars: indicatorBars, cache: indicatorCache });
+  const indicatorRunner: IndicatorRunner = {
+    drawn: (request) => engine.drawn(request),
+    forming: (instrument, timeframe) => indicatorBars.forming(instrument, timeframe),
+  };
+  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, indicatorRunner, ...trustedProxies(env), now, logger: true });
 
   const port = Number(env['AIA_PORT'] ?? 8080);
   const host = env['AIA_HOST'] ?? '127.0.0.1';
@@ -94,6 +112,7 @@ async function main(): Promise<void> {
       .close()
       .then(() => data.close())
       .then(() => counter.close())
+      .then(() => indicatorCache.close())
       .then(() => process.exit(0));
   };
   process.on('SIGINT', shutdown);
