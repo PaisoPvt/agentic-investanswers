@@ -2,9 +2,9 @@
 
 For the AWS administrator. Written for owner input OI-31 (task M2-01), 2026-11-16.
 
-**Account:** dev, `448554876487`. **Region:** `us-east-1`. **Signed in as:** the `AWSDeveloperAccess` permission set (rehan.shams@ensosis.com).
+**Account:** dev, `448554876487`. **Region:** `us-east-1`. **Signed in as:** the `AWSARKDeveloperAccess` permission set (rehan.shams@ensosis.com; it replaced `AWSDeveloperAccess` on 2026-11-17).
 
-The platform is described in AWS CDK (`infra/` in the repository) and deployed with `cdk deploy`. The `AWSDeveloperAccess` permission set has no IAM rights, so neither CDK's one-time setup nor a deploy can run, because the ECS tasks need IAM roles. Option A below is the smallest request: the broad rights stay with CDK's own roles, which only CloudFormation uses.
+The platform is described in AWS CDK (`infra/` in the repository) and deployed with `cdk deploy`. That permission set has no IAM rights, so neither CDK's one-time setup nor a deploy can run, because the ECS tasks need IAM roles. Option A below is the smallest request: the broad rights stay with CDK's own roles, which only CloudFormation uses.
 
 ## Option A (preferred): bootstrap CDK, let the permission set use its roles
 
@@ -22,7 +22,7 @@ The platform is described in AWS CDK (`infra/` in the repository) and deployed w
    - `cdk-hnb659fds-lookup-role-448554876487-us-east-1`
    - `cdk-hnb659fds-cfn-exec-role-448554876487-us-east-1` (used only by CloudFormation)
 
-2. **Add to the `AWSDeveloperAccess` permission set** (dev account only):
+2. **Add to the `AWSARKDeveloperAccess` permission set** (dev account only):
 
    ```json
    {
