@@ -1,12 +1,15 @@
 // The chart app: pickers, the chart, and a status line (connection state and
 // any message from the server, with the upgrade link for a locked choice).
-// Indicator settings (M3-02) are checked by the server and kept here until
-// the chart draws indicators (M3-05).
+// Indicators (M3-02, M3-05): choosing one opens its settings dialog; Apply
+// sends the settings to the server and, once accepted, the chart draws the
+// server's output with them. Each shown indicator has a chip to change its
+// settings or remove it.
 
 import type { IndicatorSettingsDialog, IndicatorsResponse, InstrumentInfo, SettingsAccepted } from '@aia/client-contract';
 import type { Timeframe } from '@aia/shared-kernel';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
+import type { ShownIndicator } from '../chart/indicator-layer.js';
 import type { SeriesStatus } from '../data/bar-series.js';
 import type { ConnectionState, LiveConnection } from '../data/live-connection.js';
 import type { PlatformClient } from '../data/platform-client.js';
@@ -51,6 +54,8 @@ export function App({ client, live, connection, session }: AppProps) {
   const [indicators, setIndicators] = useState<IndicatorsResponse['indicators']>([]);
   const [applied, setApplied] = useState<Readonly<Record<string, SettingsAccepted>>>({});
   const [editing, setEditing] = useState<IndicatorSettingsDialog>();
+  const [indicatorErrors, setIndicatorErrors] = useState<Readonly<Record<string, string>>>({});
+  const shown = useMemo<readonly ShownIndicator[]>(() => Object.values(applied).map((a) => ({ id: a.indicatorId, settings: a.settings })), [applied]);
 
   useEffect(() => {
     let current = true;
@@ -102,6 +107,15 @@ export function App({ client, live, connection, session }: AppProps) {
     return undefined;
   };
 
+  const removeIndicator = (id: string) => setApplied(Object.fromEntries(Object.entries(applied).filter(([key]) => key !== id)));
+
+  const indicatorError = (id: string, message: string | undefined) =>
+    setIndicatorErrors((errors) => {
+      if (errors[id] === message) return errors;
+      const rest = Object.fromEntries(Object.entries(errors).filter(([key]) => key !== id));
+      return message === undefined ? rest : { ...rest, [id]: message };
+    });
+
   if (failure !== undefined) return <p className="message" role="alert">{failure}</p>;
   if (instruments === undefined) return <p className="message">Loading…</p>;
   if (instrument === undefined || timeframe === undefined) return <p className="message">No instrument is available on your plan.</p>;
@@ -118,7 +132,36 @@ export function App({ client, live, connection, session }: AppProps) {
         onIndicator={openIndicator}
         session={session}
       />
-      <ChartView client={client} live={live} instrument={instrument} timeframe={timeframe} onStatus={setStatus} />
+      {shown.length > 0 && (
+        <div className="indicator-bar" data-testid="indicator-bar">
+          {Object.values(applied).map((a) => {
+            const name = indicators.find((i) => i.id === a.indicatorId)?.name ?? a.indicatorId;
+            const numbers = Object.values(a.settings).filter((v) => typeof v === 'number');
+            const failed = indicatorErrors[a.indicatorId];
+            return (
+              <span key={a.indicatorId} className="chip" data-testid={`indicator-chip-${a.indicatorId}`} data-failed={failed !== undefined}>
+                <button type="button" className="link" title="Change settings" data-testid={`edit-indicator-${a.indicatorId}`} onClick={() => setEditing(a.dialog)}>
+                  {name}
+                  {numbers.length > 0 && ` (${numbers.join(', ')})`}
+                </button>
+                {failed !== undefined && <span role="alert"> {failed}</span>}
+                <button type="button" className="remove" aria-label={`Remove ${name}`} data-testid={`remove-indicator-${a.indicatorId}`} onClick={() => removeIndicator(a.indicatorId)}>
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <ChartView
+        client={client}
+        live={live}
+        instrument={instrument}
+        timeframe={timeframe}
+        onStatus={setStatus}
+        indicators={shown}
+        onIndicatorError={indicatorError}
+      />
       <div className="status" data-testid="status" data-connection={state} data-series={status.state}>
         <span>{CONNECTION_TEXT[state]}</span>
         {status.state === 'loading' && <span>Loading bars…</span>}

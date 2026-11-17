@@ -6,6 +6,12 @@
 // Updates that arrive before the page are held and applied on top of it. On
 // `resync` (or a reconnect), the newest page is loaded again.
 //
+// Two options keep the chart steady when resyncs come often (the chart turns
+// both on): `minReloadGapMs` turns a burst of resyncs into one reload now and
+// at most one more after the gap, and `quietReloads` applies only the bars a
+// reload changed, without a reset or a "loading" status, unless the new page
+// does not overlap what is on screen.
+//
 // Applying an update: a newer bar is appended, the same time replaces the
 // newest bar, and an older time replaces that bar in place: the protocol
 // revises the previous bar every minute (its stored value replacing the
@@ -33,7 +39,16 @@ export interface BarSeriesDeps {
   readonly history: (instrument: string, tf: Timeframe) => Promise<HistoryResponse>;
   readonly onEvent: (event: SeriesEvent) => void;
   readonly onStatus?: (status: SeriesStatus) => void;
+  /** Reloads at most once per this many milliseconds; 0 (default) reloads on every resync. */
+  readonly minReloadGapMs?: number;
+  /** A reload applies only changed bars, keeping the series on screen (default false: a reset). */
+  readonly quietReloads?: boolean;
+  /** Runs `run` after `ms`; tests drive it by hand. */
+  readonly wait?: (ms: number, run: () => void) => void;
 }
+
+const sameBar = (a: DisplayBar, b: DisplayBar) =>
+  a.time === b.time && a.open === b.open && a.high === b.high && a.low === b.low && a.close === b.close && a.volume === b.volume;
 
 export class BarSeries {
   private bars: DisplayBar[] = [];
@@ -43,6 +58,10 @@ export class BarSeries {
   private generation = 0;
   private unsubscribe: (() => void) | undefined;
   private stopped = false;
+  /** Within the reload gap; a resync meanwhile sets `pending`. */
+  private cooling = false;
+  private pending = false;
+  private lastState: SeriesStatus['state'] | undefined;
 
   constructor(
     readonly instrument: string,
@@ -63,7 +82,7 @@ export class BarSeries {
   start(): void {
     this.unsubscribe = this.deps.live.subscribe(this.instrument, this.timeframe, {
       updates: (updates) => this.receive(updates),
-      resync: () => void this.load(),
+      resync: () => this.reload(),
       error: (code: LiveErrorCode, message: string) => this.status({ state: 'error', code, message }),
     });
     void this.load();
@@ -76,11 +95,33 @@ export class BarSeries {
     this.unsubscribe = undefined;
   }
 
+  /** A resync: reload now, or once the gap since the last reload is over. */
+  private reload(): void {
+    const gap = this.deps.minReloadGapMs ?? 0;
+    if (gap <= 0) {
+      void this.load();
+      return;
+    }
+    if (this.cooling) {
+      this.pending = true;
+      return;
+    }
+    this.cooling = true;
+    (this.deps.wait ?? ((ms, run) => void setTimeout(run, ms)))(gap, () => {
+      this.cooling = false;
+      if (!this.pending) return;
+      this.pending = false;
+      this.reload();
+    });
+    void this.load();
+  }
+
   private async load(): Promise<void> {
     if (this.stopped) return;
     const generation = ++this.generation;
+    const quiet = this.deps.quietReloads === true && this.bars.length > 0;
     this.held ??= [];
-    this.status({ state: 'loading' });
+    if (!quiet) this.status({ state: 'loading' });
     let page: HistoryResponse;
     try {
       page = await this.deps.history(this.instrument, this.timeframe);
@@ -94,12 +135,33 @@ export class BarSeries {
       return;
     }
     if (generation !== this.generation) return;
+    if (quiet && this.overlaps(page.bars)) {
+      for (const bar of page.bars) {
+        const index = indexOfTime(this.bars, bar.time);
+        if (index < 0 || !sameBar(this.bars[index] as DisplayBar, bar)) this.apply(bar, true);
+      }
+      const held = this.held ?? [];
+      this.held = undefined;
+      for (const update of held) this.apply(update.bar, true);
+      if (this.lastState !== 'ready') this.status({ state: 'ready' });
+      return;
+    }
     this.bars = [...page.bars];
     const held = this.held ?? [];
     this.held = undefined;
     for (const update of held) this.apply(update.bar, false);
     this.deps.onEvent({ type: 'reset', bars: this.bars });
     this.status({ state: 'ready' });
+  }
+
+  /** True when the page shares at least one bar's time span with what is loaded. */
+  private overlaps(page: readonly DisplayBar[]): boolean {
+    const first = page[0];
+    const last = page[page.length - 1];
+    const loadedFirst = this.bars[0];
+    const loadedLast = this.bars[this.bars.length - 1];
+    if (first === undefined || last === undefined || loadedFirst === undefined || loadedLast === undefined) return false;
+    return first.time <= loadedLast.time && last.time >= loadedFirst.time;
   }
 
   private receive(updates: readonly LiveWireUpdate[]): void {
@@ -138,7 +200,9 @@ export class BarSeries {
   }
 
   private status(status: SeriesStatus): void {
-    if (!this.stopped) this.deps.onStatus?.(status);
+    if (this.stopped) return;
+    this.lastState = status.state;
+    this.deps.onStatus?.(status);
   }
 }
 

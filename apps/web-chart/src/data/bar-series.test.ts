@@ -142,4 +142,67 @@ describe('BarSeries', () => {
     expect(events).toEqual([]);
     expect(statuses).toEqual([{ state: 'loading' }]);
   });
+
+  describe('steady reloads (the chart\'s options)', () => {
+    let timers: (() => void)[];
+    let steady: BarSeries;
+
+    beforeEach(() => {
+      timers = [];
+      steady = new BarSeries('BTCUSD', '1m', {
+        live: { subscribe: (_i, _tf, l) => ((listener = l), () => unsubscribed++) },
+        history: () => {
+          const request = deferred<HistoryResponse>();
+          requests.push(request);
+          return request.promise;
+        },
+        onEvent: (e) => events.push(structuredClone(e)),
+        onStatus: (s) => statuses.push(s),
+        minReloadGapMs: 2_000,
+        quietReloads: true,
+        wait: (_ms, run) => void timers.push(run),
+      });
+    });
+
+    it('turns a burst of resyncs into one reload now and one after the gap', async () => {
+      steady.start();
+      requests[0]?.resolve(page(bar(60, 1)));
+      await flush();
+      for (let i = 0; i < 5; i++) live().resync();
+      expect(requests).toHaveLength(2);
+      timers.shift()?.();
+      expect(requests).toHaveLength(3);
+      timers.shift()?.();
+      expect(requests).toHaveLength(3);
+    });
+
+    it('a quiet reload applies only the bars that changed, with no reset and no loading status', async () => {
+      steady.start();
+      requests[0]?.resolve(page(bar(60, 1), bar(120, 2)));
+      await flush();
+      events.length = 0;
+      statuses.length = 0;
+      live().resync();
+      live().updates([wire(180, 9)]);
+      requests[1]?.resolve(page(bar(60, 1), bar(120, 3)));
+      await flush();
+      expect(events).toEqual([
+        { type: 'bar', bar: bar(120, 3), index: 1, newest: true },
+        { type: 'bar', bar: bar(180, 9), index: 2, newest: true },
+      ]);
+      expect(statuses).toEqual([]);
+      expect(steady.current).toEqual([bar(60, 1), bar(120, 3), bar(180, 9)]);
+    });
+
+    it('a reload that does not overlap what is on screen still replaces the series', async () => {
+      steady.start();
+      requests[0]?.resolve(page(bar(60, 1)));
+      await flush();
+      events.length = 0;
+      live().resync();
+      requests[1]?.resolve(page(bar(600, 5), bar(660, 6)));
+      await flush();
+      expect(events).toEqual([{ type: 'reset', bars: [bar(600, 5), bar(660, 6)] }]);
+    });
+  });
 });

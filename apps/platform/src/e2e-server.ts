@@ -16,6 +16,8 @@
 // - Access: local developer mode, everything allowed; or, with --sign-in
 //   (M2-14), the app's own sign-in on in-memory accounts, every account on a
 //   plan that includes everything.
+// - Indicators: the test-only settingsDemo (never a real indicator, rule 5),
+//   run by the real engine with a memory cache.
 //
 //   tsx apps/platform/src/e2e-server.ts             (AIA_PORT, default 8181)
 //   tsx apps/platform/src/e2e-server.ts --sign-in
@@ -23,12 +25,13 @@
 import { accessFromEnv, parsePlanBook } from '@aia/access';
 import type { LiveBarUpdate } from '@aia/data';
 import { BTCUSD, ETHUSD, MemoryDataLayer, SimulatedLiveFeed } from '@aia/data';
-import { IndicatorRegistry } from '@aia/indicators';
+import { IndicatorEngine, IndicatorRegistry, MemoryIndicatorOutputCache } from '@aia/indicators';
 import { HistoryQuery, LiveGateway } from '@aia/serving';
 import type { Bar, BarTime, Instrument, Timeframe } from '@aia/shared-kernel';
 import { alignToTimeframe, barTime, price, volume } from '@aia/shared-kernel';
 import type { FastifyInstance } from 'fastify';
 
+import { IndicatorBars } from './indicator-bars.js';
 import { buildServer } from './server.js';
 import { settingsDemo } from './settings-demo-indicator.js';
 
@@ -177,12 +180,17 @@ export async function startE2EServer(port: number, options: { readonly signIn?: 
   const announcer = data.announcer('e2e');
   const feeds = new Map(INSTRUMENTS.map((i) => [i.symbol, new E2ELive(i)]));
 
+  const indicators = new IndicatorRegistry([settingsDemo]);
+  const indicatorBars = new IndicatorBars({ data, now: () => barTime(E2E_NOW) });
+  const engine = new IndicatorEngine({ registry: indicators, bars: indicatorBars, cache: new MemoryIndicatorOutputCache() });
+
   const app = await buildServer({
     history,
     access: options.signIn === true ? accessFromEnv({}, undefined, OPEN_PLANS) : accessFromEnv({ AIA_DEV_AUTH: '1' }),
     live,
     catalog: data,
-    indicators: new IndicatorRegistry([settingsDemo]),
+    indicators,
+    indicatorRunner: { drawn: (r) => engine.drawn(r), forming: (i, t) => indicatorBars.forming(i, t) },
     now: () => barTime(E2E_NOW),
     logger: false,
   });

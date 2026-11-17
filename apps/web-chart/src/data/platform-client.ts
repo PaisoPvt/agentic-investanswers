@@ -1,6 +1,6 @@
 // The platform's REST routes as the chart uses them (GET /bars, GET
-// /instruments, GET /indicators, POST /indicators/:id/settings, /auth/*), and
-// the /live URL. Same origin: the Vite dev server proxies
+// /instruments, GET /indicators, POST /indicators/:id/settings, POST
+// /indicators/:id/outputs, /auth/*), and the /live URL. Same origin: the Vite dev server proxies
 // to the platform locally, and staging serves both behind one host (M2-01).
 //
 // A session token, when there is one, goes on every request: the
@@ -12,6 +12,8 @@ import type {
   AccountInfo,
   ApiErrorBody,
   HistoryResponse,
+  IndicatorOutputsRequest,
+  IndicatorOutputsResponse,
   IndicatorsResponse,
   InstrumentsResponse,
   InvalidSettingsBody,
@@ -72,6 +74,13 @@ export class PlatformClient {
     const body = await readError(response);
     if (response.status === 400 && body.error?.code === 'invalid_settings') return { ok: false, fields: (body as InvalidSettingsBody).error.fields };
     throw apiError(response.status, body);
+  }
+
+  /** What an indicator draws on one instrument and timeframe: drawn outputs only, computed on the server. */
+  async indicatorOutputs(indicatorId: string, request: IndicatorOutputsRequest): Promise<IndicatorOutputsResponse> {
+    const response = await this.send(`/indicators/${encodeURIComponent(indicatorId)}/outputs`, { method: 'POST', body: request });
+    if (response.ok) return (await response.json()) as IndicatorOutputsResponse;
+    throw apiError(response.status, await readError(response));
   }
 
   /**

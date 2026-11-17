@@ -4,7 +4,7 @@ What we decided to keep the MVP moving: fallbacks in effect, temporary choices t
 
 Each entry gives the date, what was decided and why, what it affects, and what replaces it or closes it. Entries are never deleted: when one closes, it moves to "Closed" with the outcome.
 
-Last updated: 2026-11-14.
+Last updated: 2026-11-17.
 
 ## Fallbacks in effect
 Where something we were waiting for has not arrived, so we use an agreed alternative.
@@ -129,6 +129,7 @@ Settled choices the client may ask about.
 - **What:** the MVP's indicator milestone (M3) is built and proven on a simple moving average and its demo strategy: plotted on the chart, with its settings dialog and backtest, at 100% parity against its own TradingView exports (OI-30). The IA-ATR-Model 2.1 port (M3-07a to M3-07c) moves to Phase 1.
 - **Why:** Sham decided the MVP uses a simple indicator such as a moving average, so the MVP no longer waits on the ATR source.
 - **Design requirement (kept):** the indicator interface and engine take ATR later as one new indicator, with no change to the engine, the API or the chart.
+- **Progress (2026-11-17, M3-05):** the moving average runs on the server and is drawn on the chart, with its settings dialog and its Long/Short entries; agents read it through MCP. Still to come: the parity check against TradingView's exports (OI-30), and the staging chart (OI-31).
 
 **D-12 · Agents read through MCP, the standard way AI assistants connect to tools** (2026-11-13, M4-02)
 - **What:** an agent connects to the platform's MCP endpoint with its read-only agent key (F-04) and gets three tools: list the instruments, get bars, and see its plan. Indicator outputs join as a fourth tool when the chart serves them (M3-05). Built with the official MCP software kit (`@modelcontextprotocol/sdk`), approved by Sham on 2026-11-13.
@@ -143,6 +144,11 @@ Settled choices the client may ask about.
   - The Massive key lives in AWS Secrets Manager (about $0.40 a month), readable only by hydration.
   - **Dev runs without a NAT gateway** to save about $33 a month: its containers have public addresses for outgoing calls but accept connections only from the load balancer. Staging and prod get a NAT gateway.
 - **Why:** the architecture's plan (AWS, CDK), the cheapest setup that keeps raw data safe and nothing exposed. Expected dev cost: about $60 to $75 a month.
+
+**D-14 · Indicator code stays in a private repository and is loaded when the platform starts** (2026-11-17, Sham; M3-05)
+- **What:** the moving average lives in the private repository `agentic-investanswers-indicators`, not in the main repository, which is public for now (D-05). The platform loads the indicators it is told to (one setting, `AIA_INDICATORS`) when it starts, checks each one, and offers only those. ATR (Phase 1) goes the same way.
+- **Why:** the brief keeps indicator source restricted, and only what an indicator draws ever leaves the server. A simple moving average is not secret, but proving the private route now means ATR needs no new plumbing.
+- **What it affects:** the deployed platform needs read access to the private repository when its container image is built (owner input OI-32). Without it the platform runs, just without indicators.
 
 ## Closed
 **T-07 · The chart has no sign-in screen while everything runs locally** (2026-11-14, M2-05) · closed 2026-11-16 (M2-14)
