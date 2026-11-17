@@ -84,6 +84,7 @@ Full specification: `analytics-platform-architecture` (project files). This page
 
 ## Chart app (M2-05)
 `apps/web-chart`: React and KLineChart 10 (Apache 2.0), built with Vite. KLineChart's built-in indicators are never created; indicators are drawn from server output (M3). Locally, `pnpm chart` proxies `/bars`, `/instruments`, `/indicators`, `/live` and `/auth` to the platform on :8080, so the browser sees one origin, as it will behind one host on staging.
+- **Sign-in screens (M2-14):** `AuthGate` asks `GET /auth/me` before the chart opens. Signed in: the chart, with the account and Sign out in the toolbar. Signed out: `SignInScreen` (sign in or create an account; every rule and message is the server's). A platform without sign-in (developer access, the /auth routes absent, 404): the chart straight away. The token is kept in localStorage (`aia.session`) and sent on every request and as `?token=` on /live. Sign out ends the server session and reloads the page.
 - **Framework-free data client** (`src/data`), which React only binds to:
   - `LiveConnection`: one WebSocket per tab, with ref-counted subscriptions. It reconnects with backoff (0.5 s doubling to 30 s, with jitter), and a reconnect resubscribes and resyncs every series.
   - `BarSeries`: one instrument and timeframe, following the gateway's client contract (subscribe, then load the newest 500 bars, then apply updates by bar time). It reloads on `resync`.
