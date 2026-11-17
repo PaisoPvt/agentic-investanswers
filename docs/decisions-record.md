@@ -55,10 +55,6 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Affects:** each signed-in user may make 300 chart requests a minute and each agent key 120 (bars, plan and live connections; live updates on an open connection are not counted). Per client address: 10 sign-in attempts per 15 minutes and 5 new accounts an hour. Per account: 20 agent keys created or revoked an hour. Over a limit, the request is refused with "too many requests" and when to retry. A single request returns at most 1,000 bars. If the limit counter (Redis) is down, requests are let through rather than refused.
 - **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are added in the AWS stack (M2-01).
 
-**T-07 · The chart has no sign-in screen while everything runs locally** (2026-11-14, M2-05)
-- **Why:** everything runs locally until AWS access arrives (F-01). Sham decided on 2026-11-14 that the chart uses local developer access until then, and that the email and password screens are built when the app moves to AWS.
-- **Affects:** locally, the chart is run against the platform in developer access mode, where every request has access to everything. The chart already sends a session token with every request when it has one, so it works unchanged once a sign-in screen gives it one. The sign-in itself (T-01) is in place on the server.
-- **Closes when:** the sign-in screens are added (M2-14, using the app's own sign-in, T-01, or InvestAnswers', OI-21). The AWS dev environment runs the real sign-in from the start, never developer access (Sham, 2026-11-16), so the screens come before the client uses it.
 
 **T-08 · Every plan can use indicators** (2026-11-14, M3-02)
 - **Why:** the placeholder plans (T-02) only list instruments and timeframes; which plans include which indicators is not decided (OI-21).
@@ -155,6 +151,10 @@ Settled choices the client may ask about.
 - **What it affects:** the deployed platform needs read access to the private repository when its container image is built (owner input OI-32). Without it the platform runs, just without indicators.
 
 ## Closed
+**T-07 · The chart has no sign-in screen while everything runs locally** (2026-11-14, M2-05) · closed 2026-11-16 (M2-14)
+- **Was:** locally the chart ran against the platform in developer access mode, with no sign-in screen, until the move to AWS.
+- **Outcome:** the chart now has sign-up, sign-in and sign-out screens on the app's own sign-in (T-01). They appear whenever the platform runs the real sign-in (AWS, or locally without developer access, as in the client demo on 2026-11-16); in developer access mode the chart still opens straight away.
+
 **F-02 · Simple moving average stands in for the ATR indicator** (2026-11-13) · closed 2026-11-13
 - **Was:** a fallback: the indicator milestone ran on a simple moving average until the ATR source and exports (OI-23) arrived, with the same design requirement as D-11.
 - **Outcome:** no longer a fallback. Sham decided the same day that the simple moving average is the MVP indicator and ATR is Phase 1 (D-11).

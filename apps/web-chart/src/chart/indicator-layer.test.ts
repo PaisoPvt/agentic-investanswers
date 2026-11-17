@@ -99,6 +99,19 @@ describe('IndicatorLayer', () => {
     expect(asked.map((a) => a.settings?.['length'])).toEqual([20, 50]);
   });
 
+  it('new settings keep the old line until the new one arrives', async () => {
+    const { asked, pending, layer } = setup();
+    layer.show(target, [sma(20)]);
+    pending[0]?.(100);
+    await flush();
+    layer.show(target, [sma(50)]);
+    expect(asked).toHaveLength(2);
+    expect(overlayPoints.get('aia-sma')?.byTime.get(T * 1000)).toEqual({ sma: 100 });
+    pending[1]?.(200);
+    await flush();
+    expect(overlayPoints.get('aia-sma')?.byTime.get(T * 1000)).toEqual({ sma: 200 });
+  });
+
   it('removing an indicator takes it off the chart', () => {
     const { chart, layer } = setup();
     layer.show(target, [sma(20)]);

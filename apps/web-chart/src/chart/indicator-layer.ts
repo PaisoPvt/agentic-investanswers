@@ -3,9 +3,10 @@
 // the chart as an `aia-output` indicator (indicator-overlay.ts; the caller
 // registers the template first, output-template.ts).
 //
-// - A new instrument, timeframe or setting clears that indicator's points at
-//   once (so no line from the old instrument is drawn on the new one) and asks
-//   the server again; an answer to an older question is dropped.
+// - A new instrument or timeframe clears that indicator's points at once (so
+//   no line from the old instrument is drawn on the new one); new settings
+//   keep the old line until the new one arrives. Either way the server is
+//   asked again and an answer to an older question is dropped.
 // - Outputs are asked again when a new bar appears on the chart (the previous
 //   one closed), and every minute for the forming bar's point.
 
@@ -100,7 +101,9 @@ export class IndicatorLayer {
         void this.load(shown.id);
       } else if (moved || JSON.stringify(entry.shown.settings) !== JSON.stringify(shown.settings)) {
         entry.shown = shown;
-        this.draw(entry, undefined);
+        // Another instrument or timeframe: its old points must not be drawn on the new bars. New
+        // settings: the old line stays until the new one arrives, so it does not blink.
+        if (moved) this.draw(entry, undefined);
         void this.load(shown.id);
       }
     }

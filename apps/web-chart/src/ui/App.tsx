@@ -13,6 +13,7 @@ import type { ShownIndicator } from '../chart/indicator-layer.js';
 import type { SeriesStatus } from '../data/bar-series.js';
 import type { ConnectionState, LiveConnection } from '../data/live-connection.js';
 import type { PlatformClient } from '../data/platform-client.js';
+import type { Session } from './AuthGate.js';
 import { ChartView } from './ChartView.js';
 import { SettingsDialog } from './SettingsDialog.js';
 import { Toolbar } from './Toolbar.js';
@@ -27,6 +28,8 @@ export interface AppProps {
   readonly client: PlatformClient;
   readonly live: LiveConnection;
   readonly connection: StateSource;
+  /** The signed-in account; none in developer access. */
+  readonly session?: Session | undefined;
 }
 
 const CONNECTION_TEXT: Readonly<Record<ConnectionState, string>> = {
@@ -41,7 +44,7 @@ function defaultTimeframe(instrument: InstrumentInfo): Timeframe | undefined {
   return instrument.included.includes('1m') ? '1m' : instrument.included[0];
 }
 
-export function App({ client, live, connection }: AppProps) {
+export function App({ client, live, connection, session }: AppProps) {
   const [instruments, setInstruments] = useState<readonly InstrumentInfo[]>();
   const [failure, setFailure] = useState<string>();
   const [symbol, setSymbol] = useState<string>();
@@ -127,6 +130,7 @@ export function App({ client, live, connection }: AppProps) {
         onTimeframe={setTimeframe}
         indicators={indicators}
         onIndicator={openIndicator}
+        session={session}
       />
       {shown.length > 0 && (
         <div className="indicator-bar" data-testid="indicator-bar">

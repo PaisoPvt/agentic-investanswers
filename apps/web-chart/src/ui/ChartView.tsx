@@ -57,7 +57,9 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
     chart.current = created;
     const feed = new ChartFeed({
       chart: () => chart.current ?? undefined,
-      newSeries: (symbol, tf, handlers) => new BarSeries(symbol, tf, { live, history: (s, t) => client.history(s, t), ...handlers }),
+      // Steady under frequent resyncs: one reload per 2 s at most, applying only what changed.
+      newSeries: (symbol, tf, handlers) =>
+        new BarSeries(symbol, tf, { live, history: (s, t) => client.history(s, t), minReloadGapMs: 2_000, quietReloads: true, ...handlers }),
       onStatus: (s) => status.current(s),
     });
     created.setDataLoader(feed);
