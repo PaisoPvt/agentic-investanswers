@@ -31,6 +31,13 @@
       .indicator-bar .remove { font-size: 14px; line-height: 1; color: #57606a; }
       .status { display: flex; gap: 12px; padding: 4px 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #57606a; }
       .message { padding: 16px; }
+      .freshness { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+      .freshness .dot { width: 8px; height: 8px; border-radius: 50%; background: #8c959f; }
+      .freshness[data-level='live'] .dot { background: #1a7f37; box-shadow: 0 0 0 3px rgba(26, 127, 55, 0.18); }
+      .freshness[data-level='delayed'] .dot { background: #bf8700; }
+      .freshness[data-level='delayed'] { color: #7d4e00; }
+      .freshness[data-level='stale'] .dot, .freshness[data-level='offline'] .dot { background: #cf222e; }
+      .freshness[data-level='stale'], .freshness[data-level='offline'] { color: #a40e26; }
       .account { margin-left: auto; display: flex; gap: 8px; align-items: center; color: #57606a; }
       .sign-in { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: #f6f8fa; }
       .sign-in .card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 6px; padding: 28px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px rgba(31, 35, 40, 0.08); }

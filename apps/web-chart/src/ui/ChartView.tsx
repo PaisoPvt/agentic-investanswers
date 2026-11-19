@@ -18,7 +18,7 @@ import { IndicatorLayer } from '../chart/indicator-layer.js';
 import { registerOutputTemplate } from '../chart/output-template.js';
 import { periodOf } from '../chart/periods.js';
 import { BarSeries } from '../data/bar-series.js';
-import type { SeriesStatus } from '../data/bar-series.js';
+import type { SeriesEvent, SeriesStatus } from '../data/bar-series.js';
 import type { LiveConnection } from '../data/live-connection.js';
 import type { PlatformClient } from '../data/platform-client.js';
 
@@ -41,11 +41,13 @@ export interface ChartViewProps {
   readonly onIndicatorError?: (indicatorId: string, message: string | undefined) => void;
   /** The trader's drawings (UI-01), attached to this chart while it exists. */
   readonly drawings?: DrawingLayer | undefined;
+  /** Every event of the shown series (the freshness badge, UI-02). */
+  readonly onActivity?: (event: SeriesEvent) => void;
 }
 
 const NONE: readonly ShownIndicator[] = [];
 
-export function ChartView({ client, live, instrument, timeframe, onStatus, indicators = NONE, onIndicatorError, drawings }: ChartViewProps) {
+export function ChartView({ client, live, instrument, timeframe, onStatus, indicators = NONE, onIndicatorError, drawings, onActivity }: ChartViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<Chart | null>(null);
   const layer = useRef<IndicatorLayer | null>(null);
@@ -53,6 +55,8 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
   status.current = onStatus;
   const indicatorError = useRef(onIndicatorError);
   indicatorError.current = onIndicatorError;
+  const activity = useRef(onActivity);
+  activity.current = onActivity;
 
   useEffect(() => {
     const element = container.current;
@@ -66,6 +70,7 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
       newSeries: (symbol, tf, handlers) =>
         new BarSeries(symbol, tf, { live, history: (s, t) => client.history(s, t), minReloadGapMs: 2_000, quietReloads: true, ...handlers }),
       onStatus: (s) => status.current(s),
+      onActivity: (e) => activity.current?.(e),
     });
     created.setDataLoader(feed);
     registerOutputTemplate();

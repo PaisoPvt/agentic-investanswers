@@ -17,11 +17,13 @@ import { toolByName } from '../chart/drawing-tools.js';
 
 import type { ShownIndicator } from '../chart/indicator-layer.js';
 import type { SeriesStatus } from '../data/bar-series.js';
+import { FreshnessTracker } from '../data/freshness.js';
 import type { ConnectionState, LiveConnection } from '../data/live-connection.js';
 import type { PlatformClient } from '../data/platform-client.js';
 import type { Session } from './AuthGate.js';
 import { ChartView } from './ChartView.js';
 import { DrawingPanel } from './DrawingPanel.js';
+import { FreshnessBadge } from './FreshnessBadge.js';
 import { NoteDialog } from './NoteDialog.js';
 import { SettingsDialog } from './SettingsDialog.js';
 import { Toolbar } from './Toolbar.js';
@@ -39,13 +41,6 @@ export interface AppProps {
   /** The signed-in account; none in developer access. */
   readonly session?: Session | undefined;
 }
-
-const CONNECTION_TEXT: Readonly<Record<ConnectionState, string>> = {
-  connecting: 'Connecting…',
-  open: 'Live',
-  reconnecting: 'Reconnecting…',
-  closed: 'Closed',
-};
 
 /** The first choice open to the caller: 1m if included, else the shortest included timeframe. */
 /** Keys typed into a field or a dialog are not chart shortcuts. */
@@ -83,6 +78,7 @@ export function App({ client, live, connection, session }: AppProps) {
     [owner],
   );
   const drawing = useSyncExternalStore(drawings.subscribe, drawings.get);
+  const freshness = useMemo(() => new FreshnessTracker(), []);
   const shown = useMemo<readonly ShownIndicator[]>(() => Object.values(applied).map((a) => ({ id: a.indicatorId, settings: a.settings })), [applied]);
 
   useEffect(() => {
@@ -129,6 +125,9 @@ export function App({ client, live, connection, session }: AppProps) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [drawings]);
+
+  // Another instrument or timeframe: the badge waits for its data.
+  useEffect(() => freshness.reset(), [freshness, symbol, timeframe]);
 
   const instrument = instruments?.find((i) => i.symbol === symbol);
 
@@ -206,10 +205,11 @@ export function App({ client, live, connection, session }: AppProps) {
           indicators={shown}
           onIndicatorError={indicatorError}
           drawings={drawings}
+          onActivity={(event) => freshness.seen(event)}
         />
       </div>
       <div className="status" data-testid="status" data-connection={state} data-series={status.state}>
-        <span>{CONNECTION_TEXT[state]}</span>
+        <FreshnessBadge tracker={freshness} connection={state} timeframe={timeframe} />
         {drawing.tool !== undefined && <span data-testid="drawing-hint">{hintFor(drawing.tool)}</span>}
         {status.state === 'loading' && <span>Loading bars…</span>}
         {status.state === 'error' && (
