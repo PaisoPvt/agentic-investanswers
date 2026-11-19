@@ -33,6 +33,9 @@ const PLATFORM_PORT = 8080;
 const REDIS_PORT = 6379;
 
 /** The platform's routes; everything else is the chart. Keep in step with apps/platform/src/server.ts. */
+/** AWS's managed prefix list com.amazonaws.global.cloudfront.origin-facing (the same id in every account and region). */
+export const CLOUDFRONT_ORIGIN_FACING = 'pl-3b927c52';
+
 export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/health'] as const;
 
 export interface AiaStackProps extends StackProps {
@@ -91,11 +94,12 @@ export class AiaStack extends Stack {
       description: 'Massive API key for stock history (MASSIVE_API_KEY). Set with `pnpm aws:secret`.',
     });
 
-    // Security groups: the load balancer takes traffic only from inside the
-    // VPC (CloudFront's VPC origin connects from there); the platform only from
-    // the load balancer; the cache only from the two apps.
+    // Security groups: the load balancer takes traffic only from CloudFront
+    // (its VPC origin keeps CloudFront's own public addresses as the source,
+    // so a rule for the VPC's range never matches); the platform only from the
+    // load balancer; the cache only from the two apps.
     const albSg = new ec2.SecurityGroup(this, 'AlbSg', { vpc, description: 'Internal ALB: CloudFront VPC origin only', allowAllOutbound: false });
-    albSg.addIngressRule(ec2.Peer.ipv4(vpc.vpcCidrBlock), ec2.Port.tcp(80), 'CloudFront VPC origin');
+    albSg.addIngressRule(ec2.Peer.prefixList(CLOUDFRONT_ORIGIN_FACING), ec2.Port.tcp(80), 'CloudFront VPC origin');
     const platformSg = new ec2.SecurityGroup(this, 'PlatformSg', { vpc, description: 'Platform tasks' });
     platformSg.addIngressRule(albSg, ec2.Port.tcp(PLATFORM_PORT), 'from the ALB');
     albSg.addEgressRule(platformSg, ec2.Port.tcp(PLATFORM_PORT), 'to the platform');
@@ -157,8 +161,8 @@ export class AiaStack extends Stack {
         AIA_PORT: String(PLATFORM_PORT),
         AIA_DYNAMODB_ENDPOINT: 'aws',
         AIA_USERS_TABLE: users.tableName,
-        // The ALB and CloudFront's VPC origin connect from inside the VPC.
-        AIA_TRUSTED_PROXIES: vpc.vpcCidrBlock,
+        // Two hops: the ALB, then CloudFront (from its public addresses).
+        AIA_TRUSTED_PROXIES: '2',
       },
     });
     const platform = new ecs.FargateService(this, 'PlatformService', {

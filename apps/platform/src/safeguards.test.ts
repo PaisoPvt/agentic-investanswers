@@ -33,7 +33,7 @@ afterEach(async () => {
   app = undefined;
 });
 
-async function start(trustedProxies?: string) {
+async function start(trustedProxies?: string | number) {
   const data = new MemoryDataLayer({ instruments: [BTCUSD, ETHUSD], earliest: barTime(T0) });
   const history = new HistoryQuery({ data });
   gateway = new LiveGateway({ data, every: () => () => undefined });
@@ -115,6 +115,17 @@ describe('rate limits', () => {
     expectLimited(await attempt('5.6.7.8, 203.0.113.7, 10.0.5.9'), 20);
     // Another client has its own count.
     expect((await attempt('198.51.100.9, 10.0.7.1')).statusCode).toBe(200);
+  });
+
+  it('with 2 hops trusted (AWS: the ALB, then CloudFront from its public addresses), the client is the entry CloudFront added (M2-01)', async () => {
+    const a = await start(2);
+    await signUp(a, 'sam@example.com');
+    const attempt = (forwarded: string) =>
+      a.inject({ method: 'POST', url: '/auth/sign-in', headers: { 'x-forwarded-for': forwarded }, payload: { email: 'sam@example.com', password: PASSWORD } });
+    expect((await attempt('203.0.113.7, 130.176.1.1')).statusCode).toBe(200);
+    expect((await attempt('1.2.3.4, 203.0.113.7, 130.176.9.9')).statusCode).toBe(200);
+    expectLimited(await attempt('5.6.7.8, 203.0.113.7, 130.176.1.1'), 20);
+    expect((await attempt('198.51.100.9, 130.176.1.1')).statusCode).toBe(200);
   });
 
   it('sign-ups per client address', async () => {
