@@ -9,12 +9,6 @@ Last updated: 2026-11-17.
 ## Fallbacks in effect
 Where something we were waiting for has not arrived, so we use an agreed alternative.
 
-**F-01 · Local environment instead of AWS staging** (2026-11-13; updated 2026-11-16)
-- **Why:** AWS account access (owner input OI-20, due 2026-11-10) had not arrived. Sham confirmed on 2026-11-13 that everything stays local until it does.
-- **Affects:** everything runs and is tested on local stand-ins: MinIO for S3, Redis, DynamoDB Local. Demos run locally, including the client demo on 2026-11-13.
-- **Since 2026-11-16:** access arrived: three AWS accounts (dev, staging, prod), dev first. The whole AWS setup is written and checked (M2-01, D-13), but the sign-in role we were given cannot create the permissions the apps need, so nothing is deployed yet. We have asked the AWS administrator for that access (OI-31, request in `docs/aws-access-request.md`).
-- **Closes when:** the dev environment is deployed and hydration runs there. Nothing built so far depends on running locally.
-
 **F-03 · Stocks are history only, with no live stream** (2026-11-10)
 - **Why:** the current Massive plan refuses WebSocket access, both real time and 15-minute delayed (OI-28).
 - **Affects:** NVDA and TSLA 1-minute history is stored; no live stock bars. Crypto live is unaffected.
@@ -53,7 +47,7 @@ Choices made to keep progress going, each built so it can be swapped later witho
 **T-06 · Starter rate limits, and edge (WAF) rules with the AWS stack** (2026-11-13, M2-10)
 - **Why:** usage limits per customer are not agreed yet, and the web application firewall (WAF) is an AWS service that comes with staging (F-01, M2-01).
 - **Affects:** each signed-in user may make 300 chart requests a minute and each agent key 120 (bars, plan and live connections; live updates on an open connection are not counted). Per client address: 10 sign-in attempts per 15 minutes and 5 new accounts an hour. Per account: 20 agent keys created or revoked an hour. Over a limit, the request is refused with "too many requests" and when to retry. A single request returns at most 1,000 bars. If the limit counter (Redis) is down, requests are let through rather than refused.
-- **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are added in the AWS stack (M2-01).
+- **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are not in the AWS stack yet: the dev deploy (2026-11-19) runs without them, with the app's own rate limits only. They are added before staging.
 
 
 **T-08 · Every plan can use indicators** (2026-11-14, M3-02)
@@ -151,6 +145,10 @@ Settled choices the client may ask about.
 - **What it affects:** the deployed platform needs read access to the private repository when its container image is built (owner input OI-32). Without it the platform runs, just without indicators.
 
 ## Closed
+**F-01 · Local environment instead of AWS staging** (2026-11-13; updated 2026-11-16) · closed 2026-11-19 (M2-01)
+- **Was:** until AWS access arrived, everything ran and was tested on local stand-ins (MinIO for S3, Redis, DynamoDB Local), including the client demo on 2026-11-13.
+- **Outcome:** the dev environment is deployed on AWS (https://d7rks7pj8vbkj.cloudfront.net): the chart, sign-up and sign-in, bars and the live connection work through it, hydration stores live crypto minutes there, and history is being backfilled. Staging and production come next, from the same stack.
+
 **T-07 · The chart has no sign-in screen while everything runs locally** (2026-11-14, M2-05) · closed 2026-11-16 (M2-14)
 - **Was:** locally the chart ran against the platform in developer access mode, with no sign-in screen, until the move to AWS.
 - **Outcome:** the chart now has sign-up, sign-in and sign-out screens on the app's own sign-in (T-01). They appear whenever the platform runs the real sign-in (AWS, or locally without developer access, as in the client demo on 2026-11-16); in developer access mode the chart still opens straight away.
