@@ -51,6 +51,8 @@ To start a task, ask Claude: "Start task M1-06". It copies the template into `ta
 | M2-12 | Themes (light and dark) and mobile layout | B | M2-05 | Playwright screenshots at phone width |
 | M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | B | M2-08 | Reload restores preferences per user |
 | M2-14 | **Chart sign-in screens** (Sham, 2026-11-16; closes decision record T-07): sign up, sign in and sign out in the chart, on the app's own sign-in (M2-08), so the AWS dev environment is usable with the real sign-in | B | M2-05, M2-08 | Playwright: sign up, sign in, the chart loads with the session; sign out returns to the screen; a wrong password shows the server's message |
+| M2-15 | **Basic WAF rules in front of CloudFront** (moved out of M2-01, Sham, 2026-11-19; the WAF half of T-06): AWS managed rule sets and a per-address request ceiling on the distribution, deployed to dev | A | M2-01 | Template tests show the web ACL on the distribution; on dev a request over the ceiling is blocked |
+| M2-16 | **Deploy the stack to the staging account** (moved out of M2-01, Sham, 2026-11-19): environment entry for `aia-staging`, deploy, chart upload, backfills | A | M2-01 | `cdk deploy` to staging; hydration runs there; the staging Url serves the chart and sign-up |
 
 ## M3: First indicator at parity (groundwork Week 3, port Week 4)
 | ID | Task | → | Done when |
@@ -75,6 +77,11 @@ To start a task, ask Claude: "Start task M1-06". It copies the template into `ta
 | M4-04 | Usage and audit records for every human and agent request | M4-01 | Records queryable per user/agent |
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | M2-07 | Dashboard link for the client |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | all | One command produces the sign-off report |
+
+## Client UI feedback (side work, beside the main lanes)
+| ID | Task | → | Done when |
+|---|---|---|---|
+| UI-01 | **Drawing tools panel** (client, 2026-11-19): a panel left of the chart with trend line, ray, extended, horizontal and vertical lines, price line, parallel channel, Fibonacci retracement, rectangle, circle, triangle and text note; magnet, lock all, hide all, delete all; Delete removes the selected drawing, Esc cancels. Saved in the browser per account and instrument (decision record T-10) | M2-05 | Playwright test: a trend line is placed, survives a reload and a timeframe change, belongs to its instrument, and is deleted; notes, lock, hide and delete all tested |
 
 **Total:** 6 + 11 + 13 + 10 + 6 = 46 tasks over 4 build weeks, about 11 per week across 3 lanes.
 
