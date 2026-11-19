@@ -88,6 +88,7 @@ Full specification: `analytics-platform-architecture` (project files). This page
 - **Framework-free data client** (`src/data`), which React only binds to:
   - `LiveConnection`: one WebSocket per tab, with ref-counted subscriptions. It reconnects with backoff (0.5 s doubling to 30 s, with jitter), and a reconnect resubscribes and resyncs every series.
   - `BarSeries`: one instrument and timeframe, following the gateway's client contract (subscribe, then load the newest 500 bars, then apply updates by bar time). It reloads on `resync`.
+- **Drawings (UI-01):** the trader's own lines, shapes and notes are KLineChart overlays in one group, kept by `DrawingLayer` and placed from `DrawingPanel` (left of the chart). Points are bar time and price, so a drawing stays put across timeframes; each instrument has its own. They are saved in the browser per account and instrument (`DrawingStore`, decision record T-10) and never reach the server.
 - **Previous-bar revisions:** KLineChart drops a live bar older than its newest one, but the protocol revises the previous bar every minute. `ChartFeed` patches that bar in the chart's own list and re-sends the newest bar to redraw. The pinned version's behaviour is covered by the e2e test.
 - **The instrument picker** comes from `GET /instruments`: what is served, what the plan includes, and display precision. The MCP listing is the same, minus precision.
 - **Sign-in:** no screen yet (decision record T-07). The chart sends a stored token if there is one; locally, the platform runs with `AIA_DEV_AUTH=1`.
