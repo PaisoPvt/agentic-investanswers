@@ -4,7 +4,7 @@
 // and live bus on Redis, the feed plan), puts the History API and the live
 // gateway (@aia/serving) over it, and listens. Settings, all optional:
 //   AIA_PORT (8080), AIA_HOST (127.0.0.1), AIA_TRUSTED_PROXIES (addresses or
-//   CIDR ranges of the proxies in front; the VPC's range on AWS), AIA_REDIS_URL, AIA_S3_* and
+//   CIDR ranges of the proxies in front, or their number of hops; 2 on AWS), AIA_REDIS_URL, AIA_S3_* and
 //   AIA_*_BUCKET as for the hydration commands, AIA_FEED_PLAN,
 //   AIA_DEV_AUTH=1 to treat every request as the local developer; otherwise the
 //   app's own sign-in (M2-08) at /auth/*, with accounts and sessions in
@@ -50,9 +50,10 @@ async function usersStores(env: NodeJS.ProcessEnv) {
   };
 }
 
-function trustedProxies(env: NodeJS.ProcessEnv): { trustedProxies?: string } {
+function trustedProxies(env: NodeJS.ProcessEnv): { trustedProxies?: string | number } {
   const text = env['AIA_TRUSTED_PROXIES']?.trim();
-  return text === undefined || text === '' ? {} : { trustedProxies: text };
+  if (text === undefined || text === '') return {};
+  return { trustedProxies: /^\d+$/.test(text) ? Number(text) : text };
 }
 
 async function main(): Promise<void> {

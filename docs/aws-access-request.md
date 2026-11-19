@@ -58,6 +58,22 @@ The platform is described in AWS CDK (`infra/` in the repository) and deployed w
 
 5. **Budget (optional, recommended).** A monthly budget alert on the dev account, or read access to Billing so we can set one. Expected cost: about $60 to $75 a month.
 
+## Follow-up request (2026-11-19): running the deployed stack
+
+The first deploy worked. Restarting a service and checking on one-off tasks need a few more ECS and read rights, all on the dev cluster only. Please add to `AWSARKDeveloperAccess`:
+
+```json
+{ "Sid": "OperateDevServices", "Effect": "Allow",
+  "Action": ["ecs:UpdateService", "ecs:DescribeServices", "ecs:ListTasks", "ecs:DescribeTasks", "ecs:StopTask"],
+  "Resource": "*",
+  "Condition": { "ArnEquals": { "ecs:cluster": "arn:aws:ecs:us-east-1:448554876487:cluster/aia-dev" } } },
+{ "Sid": "ReadLoadBalancerAndCdn", "Effect": "Allow",
+  "Action": ["elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeListeners", "elasticloadbalancing:DescribeTargetGroups", "elasticloadbalancing:DescribeTargetHealth", "cloudfront:GetDistribution"],
+  "Resource": "*" }
+```
+
+Why: hydration reads the Massive key only when it starts, so storing a new key needs a restart (`ecs:UpdateService --force-new-deployment`), and following a backfill needs `ecs:DescribeTasks`. The read rights are for checking the load balancer and CloudFront when something does not answer.
+
 ## What the stack creates (through CDK's roles, nothing more for you to create)
 
 Four IAM roles, each limited to what it needs:

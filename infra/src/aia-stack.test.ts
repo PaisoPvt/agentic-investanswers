@@ -136,16 +136,21 @@ describe('access', () => {
     const env = environmentOf('platform');
     expect(env['AIA_DEV_AUTH']).toBeUndefined();
     expect(env).toMatchObject({ AIA_S3_ENDPOINT: 'aws', AIA_DYNAMODB_ENDPOINT: 'aws', AIA_HOST: '0.0.0.0', AIA_PORT: '8080' });
-    expect(env['AIA_TRUSTED_PROXIES']).toEqual({ 'Fn::GetAtt': [logicalId('Vpc', 'AWS::EC2::VPC'), 'CidrBlock'] });
+    expect(env['AIA_TRUSTED_PROXIES']).toBe('2');
   });
 });
 
 describe('network', () => {
-  it('keeps the load balancer internal, reachable only from inside the VPC', () => {
+  it('keeps the load balancer internal, reachable only from CloudFront', () => {
     template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', { Scheme: 'internal' });
+    // CloudFront's VPC origin connects from CloudFront's public addresses, so a VPC range would never match.
     const alb = logicalId('AlbSg', 'AWS::EC2::SecurityGroup');
-    expect(resources[alb]?.Properties['SecurityGroupIngress']).toEqual([
-      { CidrIp: { 'Fn::GetAtt': [logicalId('Vpc', 'AWS::EC2::VPC'), 'CidrBlock'] }, Description: 'CloudFront VPC origin', FromPort: 80, IpProtocol: 'tcp', ToPort: 80 },
+    expect(resources[alb]?.Properties['SecurityGroupIngress']).toBeUndefined();
+    const albIngress = ofType('AWS::EC2::SecurityGroupIngress')
+      .map(([, r]) => r.Properties)
+      .filter((p) => JSON.stringify(p['GroupId']) === JSON.stringify({ 'Fn::GetAtt': [alb, 'GroupId'] }));
+    expect(albIngress).toEqual([
+      { GroupId: { 'Fn::GetAtt': [alb, 'GroupId'] }, SourcePrefixListId: 'pl-3b927c52', Description: 'CloudFront VPC origin', FromPort: 80, IpProtocol: 'tcp', ToPort: 80 },
     ]);
   });
 
@@ -157,12 +162,13 @@ describe('network', () => {
     const sg = (prefix: string) => ({ 'Fn::GetAtt': [logicalId(prefix, 'AWS::EC2::SecurityGroup'), 'GroupId'] });
     expect(ingress).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ GroupId: sg('AlbSg'), SourcePrefixListId: 'pl-3b927c52', FromPort: 80 }),
         expect.objectContaining({ GroupId: sg('PlatformSg'), SourceSecurityGroupId: sg('AlbSg'), FromPort: 8080 }),
         expect.objectContaining({ GroupId: sg('CacheSg'), SourceSecurityGroupId: sg('PlatformSg'), FromPort: 6379 }),
         expect.objectContaining({ GroupId: sg('CacheSg'), SourceSecurityGroupId: sg('HydrationSg'), FromPort: 6379 }),
       ]),
     );
-    expect(ingress).toHaveLength(3);
+    expect(ingress).toHaveLength(4);
   });
 
   it('uses Valkey Serverless over TLS, with a cost ceiling', () => {
