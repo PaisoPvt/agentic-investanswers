@@ -57,4 +57,4 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M4-04 | Usage and audit records for every human and agent request | todo | #44 |  |
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | todo | #45 |  |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | todo | #46 |  |
-| UI-01 | Drawing tools panel (client UI feedback) | in review |  |  |
+| UI-01 | Drawing tools panel (client UI feedback) | in review | #116 |  |
