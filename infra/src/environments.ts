@@ -20,8 +20,10 @@ export interface AiaEnvironment {
   readonly natGateways: number;
   /** Platform tasks behind the load balancer. */
   readonly platformTasks: number;
+  /** The WAF's ceiling: requests per client address per 5 minutes, then 429 (M2-15). */
+  readonly wafRequestsPer5Min: number;
 }
 
 export const ENVIRONMENTS: Readonly<Record<string, AiaEnvironment>> = {
-  dev: { name: 'dev', account: '448554876487', region: 'us-east-1', zones: ['us-east-1a', 'us-east-1b'], profile: 'aia-dev', natGateways: 0, platformTasks: 1 },
+  dev: { name: 'dev', account: '448554876487', region: 'us-east-1', zones: ['us-east-1a', 'us-east-1b'], profile: 'aia-dev', natGateways: 0, platformTasks: 1, wafRequestsPer5Min: 3_000 },
 };
