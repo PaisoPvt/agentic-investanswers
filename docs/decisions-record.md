@@ -60,6 +60,11 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Affects:** changes reach production only in order, development → staging → production, each through a reviewed pull request with the automated checks passing; nothing is pushed straight to staging or production. The production step asks for one approval; for now Sham can merge without it.
 - **Closes when:** a second reviewer has access. Then the skip is removed in the repository settings, with no other change.
 
+**T-10 · Chart drawings are saved in the browser for now** (2026-11-19, UI-01)
+- **Why:** the client asked for drawing tools on the chart. Saving drawings with the account needs a change to the server, and Sham chose to keep this side work off the main build for now.
+- **Affects:** a trader's drawings (lines, Fibonacci, shapes, notes) are kept in that browser, per account and instrument. They survive a reload, but do not follow the trader to another browser or device, and clearing the browser's site data removes them. Drawings never reach the server or agents.
+- **Swap later:** saving goes through one small store in the chart app; keeping drawings with the account means replacing that store with one that calls the server (user preferences). The panel and the chart do not change.
+
 ## Postponed decisions
 Open questions, what we assume meanwhile, and the latest date the answer is useful.
 

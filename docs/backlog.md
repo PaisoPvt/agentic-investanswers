@@ -78,6 +78,11 @@ To start a task, ask Claude: "Start task M1-06". It copies the template into `ta
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | M2-07 | Dashboard link for the client |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | all | One command produces the sign-off report |
 
+## Client UI feedback (side work, beside the main lanes)
+| ID | Task | → | Done when |
+|---|---|---|---|
+| UI-01 | **Drawing tools panel** (client, 2026-11-19): a panel left of the chart with trend line, ray, extended, horizontal and vertical lines, price line, parallel channel, Fibonacci retracement, rectangle, circle, triangle and text note; magnet, lock all, hide all, delete all; Delete removes the selected drawing, Esc cancels. Saved in the browser per account and instrument (decision record T-10) | M2-05 | Playwright test: a trend line is placed, survives a reload and a timeframe change, belongs to its instrument, and is deleted; notes, lock, hide and delete all tested |
+
 **Total:** 6 + 11 + 13 + 10 + 6 = 46 tasks over 4 build weeks, about 11 per week across 3 lanes.
 
 ---
