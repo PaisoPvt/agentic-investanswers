@@ -11,14 +11,20 @@ import { timeframeSeconds } from '@aia/shared-kernel';
 import type { SeriesEvent } from './bar-series.js';
 import type { ConnectionState } from './live-connection.js';
 
-export const FRESHNESS_LIMITS = {
+export interface FreshnessLimits {
+  readonly delayedAfterMs: number;
+  readonly staleAfterMs: number;
+  readonly barLagMs: number;
+}
+
+export const FRESHNESS_LIMITS: FreshnessLimits = {
   /** No update for longer than this: delayed. */
   delayedAfterMs: 90_000,
   /** No update for longer than this: stale. */
   staleAfterMs: 300_000,
   /** The newest bar ended longer ago than this: delayed (intraday timeframes only). */
   barLagMs: 120_000,
-} as const;
+};
 
 export type FreshnessLevel = 'waiting' | 'live' | 'delayed' | 'stale' | 'offline';
 
@@ -62,7 +68,7 @@ function utc(seconds: number): string {
   return `${new Date(seconds * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
-export function freshnessOf(input: FreshnessInput, limits = FRESHNESS_LIMITS): Freshness {
+export function freshnessOf(input: FreshnessInput, limits: FreshnessLimits = FRESHNESS_LIMITS): Freshness {
   const { now, connection, timeframe, lastUpdateAt, newestBarTime } = input;
   const span = timeframeSeconds(timeframe);
   // How long ago the newest bar ended; undefined for daily and longer, or no bar.

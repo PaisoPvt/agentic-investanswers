@@ -60,10 +60,16 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Affects:** changes reach production only in order, development → staging → production, each through a reviewed pull request with the automated checks passing; nothing is pushed straight to staging or production. The production step asks for one approval; for now Sham can merge without it.
 - **Closes when:** a second reviewer has access. Then the skip is removed in the repository settings, with no other change.
 
-**T-10 · Chart drawings are saved in the browser for now** (2026-11-19, UI-01)
+**T-10 · Chart drawings and imported watchlists are saved in the browser for now** (2026-11-19, UI-01; watchlists added by UI-03)
 - **Why:** the client asked for drawing tools on the chart. Saving drawings with the account needs a change to the server, and Sham chose to keep this side work off the main build for now.
 - **Affects:** a trader's drawings (lines, Fibonacci, shapes, notes) are kept in that browser, per account and instrument. They survive a reload, but do not follow the trader to another browser or device, and clearing the browser's site data removes them. Drawings never reach the server or agents.
+- **Also:** a watchlist imported from TradingView (UI-03) is kept the same way. Imported TradingView chart data is only shown for the open page and never stored, on the server or in the browser.
 - **Swap later:** saving goes through one small store in the chart app; keeping drawings with the account means replacing that store with one that calls the server (user preferences). The panel and the chart do not change.
+
+**T-11 · The freshness badge works from what the browser receives** (2026-11-19, UI-02)
+- **Why:** the client asked for a sign of how fresh the data is; the freshness checker that measures each step on the server (M2-07) is not built yet.
+- **Affects:** the chart shows Live, Delayed (no update for 90 seconds, or the newest bar ended over 2 minutes ago), Stale (no update for 5 minutes) or Offline. It cannot tell a quiet market from a slow feed, and it does not know market hours yet (only crypto is served, T-04).
+- **Swap later:** the badge reads one small module with its limits in one place; M2-07's measured numbers, and market hours for stocks, can feed it without changing the badge.
 
 ## Postponed decisions
 Open questions, what we assume meanwhile, and the latest date the answer is useful.

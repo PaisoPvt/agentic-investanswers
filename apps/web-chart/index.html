@@ -23,6 +23,24 @@
       .drawing-panel button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
       .drawing-panel button[aria-pressed='true'] { background: #dbe7fe; border-color: #2563eb; color: #1d4ed8; }
       .drawing-panel button:disabled { opacity: 0.35; cursor: not-allowed; }
+      .import-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+      .import-bar .chip, .import-bar .error { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 8px; border: 1px solid #d0d7de; border-radius: 12px; background: #fff8eb; }
+      .import-bar .error { border-color: #cf222e; background: #fff5f5; color: #a40e26; }
+      .import-bar .swatch { width: 12px; height: 3px; border-radius: 2px; background: #f59e0b; }
+      .import-bar button { font: inherit; border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; }
+      .import-bar .link { color: #0969da; text-decoration: underline; }
+      .import-bar .remove { font-size: 14px; line-height: 1; color: #57606a; }
+      .watchlist { flex: none; width: 180px; border-left: 1px solid #e5e7eb; background: #fff; overflow-y: auto; font-size: 13px; }
+      .watchlist header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; }
+      .watchlist header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .watchlist header button { font: inherit; font-size: 16px; line-height: 1; border: 0; background: none; color: #57606a; cursor: pointer; }
+      .watchlist h3 { margin: 0; padding: 8px 10px 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #57606a; }
+      .watchlist ul { list-style: none; margin: 0; padding: 0 0 4px; }
+      .watchlist li button { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 6px; padding: 5px 10px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+      .watchlist li button:hover:not(:disabled) { background: #f6f8fa; }
+      .watchlist li button[aria-current='true'] { background: #dbe7fe; color: #1d4ed8; font-weight: 600; }
+      .watchlist li button:disabled { color: #8c959f; cursor: not-allowed; }
+      .watchlist .exch { font-size: 11px; color: #8c959f; }
       .note-input { width: 100%; box-sizing: border-box; }
       .indicator-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
       .indicator-bar .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border: 1px solid #d0d7de; border-radius: 12px; background: #f6f8fa; }

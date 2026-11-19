@@ -6,25 +6,33 @@
 // settings or remove it.
 // Drawings (UI-01): the panel left of the chart places the trader's own lines,
 // shapes and notes; Delete removes the selected one, Esc cancels placing.
+// TradingView import (UI-03): chart data is drawn over our bars with a match
+// report (browser only, never stored); a watchlist opens beside the chart.
 
 import type { IndicatorSettingsDialog, IndicatorsResponse, InstrumentInfo, SettingsAccepted } from '@aia/client-contract';
 import type { Timeframe } from '@aia/shared-kernel';
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { DrawingLayer } from '../chart/drawing-layer.js';
 import { DrawingStore, browserStorage } from '../chart/drawing-store.js';
 import { toolByName } from '../chart/drawing-tools.js';
+import type { ShownImport } from '../chart/import-layer.js';
 
 import type { ShownIndicator } from '../chart/indicator-layer.js';
 import type { SeriesStatus } from '../data/bar-series.js';
 import { FreshnessTracker } from '../data/freshness.js';
 import type { ConnectionState, LiveConnection } from '../data/live-connection.js';
 import type { PlatformClient } from '../data/platform-client.js';
+import type { MatchReport } from '../import/compare.js';
+import type { ImportedWatchlist } from '../import/tradingview.js';
+import { MAX_IMPORT_BYTES, matchInstrument, parseTradingViewFile } from '../import/tradingview.js';
+import { WatchlistStore } from '../import/watchlist-store.js';
 import type { Session } from './AuthGate.js';
 import { ChartView } from './ChartView.js';
 import { DrawingPanel } from './DrawingPanel.js';
 import { FreshnessBadge } from './FreshnessBadge.js';
 import { NoteDialog } from './NoteDialog.js';
+import { WatchlistPanel } from './WatchlistPanel.js';
 import { SettingsDialog } from './SettingsDialog.js';
 import { Toolbar } from './Toolbar.js';
 
@@ -56,6 +64,20 @@ function hintFor(tool: string | undefined): string | undefined {
   return `${chosen.label}: ${clicks}. Esc cancels.`;
 }
 
+function utcMinute(seconds: number): string {
+  return new Date(seconds * 1000).toISOString().slice(0, 16).replace('T', ' ');
+}
+
+function reportText(report: MatchReport | undefined, precision: number): string {
+  if (report === undefined) return '';
+  if (report.compared === 0) return 'no bars in common with the chart yet';
+  const head = `${report.matched} of ${report.compared} bars match`;
+  const d = report.firstDifference;
+  if (d === undefined) return head;
+  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: precision, maximumFractionDigits: precision });
+  return `${head} · first difference ${utcMinute(d.time)} UTC, ${d.field} ${fmt(d.ours)} here vs ${fmt(d.theirs)}`;
+}
+
 function defaultTimeframe(instrument: InstrumentInfo): Timeframe | undefined {
   return instrument.included.includes('1m') ? '1m' : instrument.included[0];
 }
@@ -79,6 +101,13 @@ export function App({ client, live, connection, session }: AppProps) {
   );
   const drawing = useSyncExternalStore(drawings.subscribe, drawings.get);
   const freshness = useMemo(() => new FreshnessTracker(), []);
+  const watchlists = useMemo(() => new WatchlistStore(browserStorage, owner), [owner]);
+  const [watchlist, setWatchlist] = useState<ImportedWatchlist | undefined>(() => watchlists.load());
+  useEffect(() => setWatchlist(watchlists.load()), [watchlists]);
+  const [imported, setImported] = useState<ShownImport>();
+  const [importReport, setImportReport] = useState<MatchReport>();
+  const [importError, setImportError] = useState<string>();
+  const fileInput = useRef<HTMLInputElement>(null);
   const shown = useMemo<readonly ShownIndicator[]>(() => Object.values(applied).map((a) => ({ id: a.indicatorId, settings: a.settings })), [applied]);
 
   useEffect(() => {
@@ -138,6 +167,39 @@ export function App({ client, live, connection, session }: AppProps) {
     if (timeframe === undefined || !chosen.included.includes(timeframe)) setTimeframe(defaultTimeframe(chosen));
   };
 
+  const importFile = async (file: File) => {
+    setImportError(undefined);
+    if (file.size > MAX_IMPORT_BYTES) {
+      setImportError(`${file.name} is larger than ${MAX_IMPORT_BYTES / 1024 / 1024} MB.`);
+      return;
+    }
+    const result = parseTradingViewFile(await file.text(), file.name);
+    if (!result.ok) {
+      setImportError(`${file.name}: ${result.message}`);
+      return;
+    }
+    const value = result.value;
+    if (value.kind === 'watchlist') {
+      watchlists.save(value);
+      setWatchlist(value);
+      return;
+    }
+    const target = matchInstrument(value.symbol, (instruments ?? []).map((i) => i.symbol));
+    const info = instruments?.find((i) => i.symbol === target);
+    if (info === undefined) {
+      setImportError(`${file.name}: ${value.symbol === undefined ? 'the file name does not say which instrument it is' : `${value.symbol} is not available here`}, so it cannot be compared.`);
+      return;
+    }
+    setImported({ data: value, instrument: info.symbol, timeframe: value.timeframe });
+    if (value.timeframe !== undefined && info.included.includes(value.timeframe)) {
+      setSymbol(info.symbol);
+      setTimeframe(value.timeframe);
+    } else if (info.included.length > 0) {
+      setSymbol(info.symbol);
+      if (timeframe === undefined || !info.included.includes(timeframe)) setTimeframe(defaultTimeframe(info));
+    }
+  };
+
   const openIndicator = (id: string) => setEditing(applied[id]?.dialog ?? indicators.find((i) => i.id === id)?.dialog);
 
   const applySettings = async (dialog: IndicatorSettingsDialog, settings: Record<string, unknown>) => {
@@ -172,7 +234,59 @@ export function App({ client, live, connection, session }: AppProps) {
         indicators={indicators}
         onIndicator={openIndicator}
         session={session}
+        onImport={() => fileInput.current?.click()}
       />
+      <input
+        ref={fileInput}
+        type="file"
+        hidden
+        accept=".csv,.txt,text/csv,text/plain"
+        data-testid="import-file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file !== undefined) void importFile(file);
+        }}
+      />
+      {(imported !== undefined || importError !== undefined) && (
+        <div className="import-bar" data-testid="import-bar">
+          {importError !== undefined && (
+            <span className="error" role="alert" data-testid="import-error">
+              {importError}
+              <button type="button" className="remove" aria-label="Dismiss" onClick={() => setImportError(undefined)}>
+                ×
+              </button>
+            </span>
+          )}
+          {imported !== undefined && (
+            <span className="chip" data-testid="import-chip">
+              <span className="swatch" aria-hidden="true" />
+              <strong>TradingView</strong> {imported.instrument} {imported.timeframe ?? '(timeframe unknown)'}
+              {' · '}
+              {imported.instrument === instrument.symbol && imported.timeframe === timeframe ? (
+                <span data-testid="import-report">{reportText(importReport, instrument.pricePrecision)}</span>
+              ) : imported.timeframe !== undefined && instruments.find((i) => i.symbol === imported.instrument)?.included.includes(imported.timeframe) ? (
+                <button
+                  type="button"
+                  className="link"
+                  data-testid="import-goto"
+                  onClick={() => {
+                    if (imported.instrument !== undefined) setSymbol(imported.instrument);
+                    if (imported.timeframe !== undefined) setTimeframe(imported.timeframe);
+                  }}
+                >
+                  Show on {imported.instrument} {imported.timeframe}
+                </button>
+              ) : (
+                <span>{imported.timeframe === undefined ? 'its timeframe could not be read' : `${imported.timeframe} is not on your plan`}</span>
+              )}
+              <button type="button" className="remove" aria-label="Remove import" data-testid="import-remove" onClick={() => setImported(undefined)}>
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+      )}
       {shown.length > 0 && (
         <div className="indicator-bar" data-testid="indicator-bar">
           {Object.values(applied).map((a) => {
@@ -206,7 +320,21 @@ export function App({ client, live, connection, session }: AppProps) {
           onIndicatorError={indicatorError}
           drawings={drawings}
           onActivity={(event) => freshness.seen(event)}
+          imported={imported}
+          onImportReport={setImportReport}
         />
+        {watchlist !== undefined && (
+          <WatchlistPanel
+            watchlist={watchlist}
+            available={instruments.filter((i) => i.included.length > 0).map((i) => i.symbol)}
+            current={instrument.symbol}
+            onPick={chooseInstrument}
+            onRemove={() => {
+              watchlists.save(undefined);
+              setWatchlist(undefined);
+            }}
+          />
+        )}
       </div>
       <div className="status" data-testid="status" data-connection={state} data-series={status.state}>
         <FreshnessBadge tracker={freshness} connection={state} timeframe={timeframe} />
