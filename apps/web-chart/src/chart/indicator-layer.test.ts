@@ -152,4 +152,25 @@ describe('IndicatorLayer', () => {
       ['sma', undefined],
     ]);
   });
+
+  it('asks for one point per bar on the chart after older bars arrive, up to the route\'s cap (M2-06)', async () => {
+    const { chart, asked, layer } = setup();
+    layer.show(target, [sma(20)]);
+    expect(asked[0]?.limit).toBeUndefined();
+    const many = (n: number) => Array.from({ length: n }, (_, i) => ({ timestamp: (T + i * 3_600) * 1000, open: 1, high: 1, low: 1, close: 1 }));
+    chart.bars = many(400);
+    layer.moreBars();
+    expect(asked).toHaveLength(1);
+    chart.bars = many(1_500);
+    layer.moreBars();
+    expect(asked[1]?.limit).toBe(1_500);
+    chart.bars = many(2_500);
+    layer.moreBars();
+    expect(asked[2]?.limit).toBe(2_000);
+    chart.bars = many(3_500);
+    layer.moreBars();
+    expect(asked).toHaveLength(3);
+    await flush();
+  });
 });
+

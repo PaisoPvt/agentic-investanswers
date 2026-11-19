@@ -59,8 +59,10 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
       chart: () => chart.current ?? undefined,
       // Steady under frequent resyncs: one reload per 2 s at most, applying only what changed.
       newSeries: (symbol, tf, handlers) =>
-        new BarSeries(symbol, tf, { live, history: (s, t) => client.history(s, t), minReloadGapMs: 2_000, quietReloads: true, ...handlers }),
+        new BarSeries(symbol, tf, { live, history: (s, t, before, limit) => client.history(s, t, before, limit), minReloadGapMs: 2_000, quietReloads: true, ...handlers }),
       onStatus: (s) => status.current(s),
+      // The indicator line follows the bars back, as far as the outputs route allows.
+      onOlder: () => layer.current?.moreBars(),
     });
     created.setDataLoader(feed);
     registerOutputTemplate();

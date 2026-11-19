@@ -9,6 +9,8 @@ import { ApiError } from './platform-client.js';
 const bar = (time: number, close: number): DisplayBar => ({ time, open: close, high: close, low: close, close, volume: 1 });
 const wire = (time: number, close: number): LiveWireUpdate => ({ instrument: 'BTCUSD', timeframe: '1m', forming: true, bar: bar(time, close) });
 const page = (...bars: DisplayBar[]): HistoryResponse => ({ instrument: 'BTCUSD', timeframe: '1m', bars, next: null });
+/** A page with older history before it: `next` is its oldest bar's time, as the History API gives it. */
+const pageWithOlder = (...bars: DisplayBar[]): HistoryResponse => ({ ...page(...bars), next: bars[0]?.time ?? null });
 
 /** A promise the test settles by hand. */
 function deferred<T>() {
@@ -24,6 +26,8 @@ function deferred<T>() {
 let listener: LiveListener | undefined;
 let unsubscribed: number;
 let requests: ReturnType<typeof deferred<HistoryResponse>>[];
+/** The `before` and `limit` of each history request. */
+let asked: { before: number | undefined; limit: number | undefined }[];
 let events: SeriesEvent[];
 let statuses: SeriesStatus[];
 let series: BarSeries;
@@ -32,6 +36,7 @@ beforeEach(() => {
   listener = undefined;
   unsubscribed = 0;
   requests = [];
+  asked = [];
   events = [];
   statuses = [];
   series = new BarSeries('BTCUSD', '1m', {
@@ -41,7 +46,8 @@ beforeEach(() => {
         return () => unsubscribed++;
       },
     },
-    history: () => {
+    history: (_i, _tf, before, limit) => {
+      asked.push({ before, limit });
       const request = deferred<HistoryResponse>();
       requests.push(request);
       return request.promise;
@@ -151,7 +157,8 @@ describe('BarSeries', () => {
       timers = [];
       steady = new BarSeries('BTCUSD', '1m', {
         live: { subscribe: (_i, _tf, l) => ((listener = l), () => unsubscribed++) },
-        history: () => {
+        history: (_i, _tf, before, limit) => {
+          asked.push({ before, limit });
           const request = deferred<HistoryResponse>();
           requests.push(request);
           return request.promise;
@@ -203,6 +210,104 @@ describe('BarSeries', () => {
       requests[1]?.resolve(page(bar(600, 5), bar(660, 6)));
       await flush();
       expect(events).toEqual([{ type: 'reset', bars: [bar(600, 5), bar(660, 6)] }]);
+    });
+  });
+
+  describe('older history (M2-06)', () => {
+    it('loads the page before the oldest bar, prepends it, and stops when the cursor runs out', async () => {
+      series.start();
+      requests[0]?.resolve(pageWithOlder(bar(180, 3), bar(240, 4)));
+      await flush();
+      expect(series.hasOlder).toBe(true);
+      const first = series.loadOlder();
+      expect(asked[1]).toEqual({ before: 180, limit: 1_000 });
+      requests[1]?.resolve(pageWithOlder(bar(60, 1), bar(120, 2)));
+      expect(await first).toEqual([bar(60, 1), bar(120, 2)]);
+      expect(series.current).toEqual([bar(60, 1), bar(120, 2), bar(180, 3), bar(240, 4)]);
+      expect(series.hasOlder).toBe(true);
+      const last = series.loadOlder();
+      expect(asked[2]?.before).toBe(60);
+      requests[2]?.resolve(page(bar(0, 0)));
+      expect(await last).toEqual([bar(0, 0)]);
+      expect(series.hasOlder).toBe(false);
+      expect(await series.loadOlder()).toEqual([]);
+      expect(requests).toHaveLength(3);
+    });
+
+    it('has nothing older when the newest page is all there is, or before the first page is in', async () => {
+      series.start();
+      expect(series.hasOlder).toBe(false);
+      expect(await series.loadOlder()).toEqual([]);
+      requests[0]?.resolve(page(bar(60, 1)));
+      await flush();
+      expect(series.hasOlder).toBe(false);
+      expect(requests).toHaveLength(1);
+    });
+
+    it('shares one request between calls, and keeps no bar twice', async () => {
+      series.start();
+      requests[0]?.resolve(pageWithOlder(bar(120, 2), bar(180, 3)));
+      await flush();
+      const a = series.loadOlder();
+      const b = series.loadOlder();
+      expect(requests).toHaveLength(2);
+      requests[1]?.resolve(pageWithOlder(bar(60, 1), bar(120, 2)));
+      expect(await a).toEqual([bar(60, 1)]);
+      expect(await b).toEqual([bar(60, 1)]);
+      expect(series.current).toEqual([bar(60, 1), bar(120, 2), bar(180, 3)]);
+    });
+
+    it('rejects when the request fails, and can try again', async () => {
+      series.start();
+      requests[0]?.resolve(pageWithOlder(bar(120, 2)));
+      await flush();
+      const failed = series.loadOlder();
+      requests[1]?.reject(new Error('offline'));
+      await expect(failed).rejects.toThrow('offline');
+      const retried = series.loadOlder();
+      expect(asked[2]?.before).toBe(120);
+      requests[2]?.resolve(page(bar(60, 1)));
+      expect(await retried).toEqual([bar(60, 1)]);
+    });
+
+    it('drops an older page that arrives after the series was replaced', async () => {
+      series.start();
+      requests[0]?.resolve(pageWithOlder(bar(120, 2)));
+      await flush();
+      const older = series.loadOlder();
+      live().resync();
+      requests[2]?.resolve(pageWithOlder(bar(600, 6)));
+      await flush();
+      requests[1]?.resolve(page(bar(60, 1)));
+      expect(await older).toEqual([]);
+      expect(series.current).toEqual([bar(600, 6)]);
+      expect(series.hasOlder).toBe(true);
+    });
+
+    it('a quiet reload keeps the older bars and the cursor', async () => {
+      const steady = new BarSeries('BTCUSD', '1m', {
+        live: { subscribe: (_i, _tf, l) => ((listener = l), () => unsubscribed++) },
+        history: (_i, _tf, before, limit) => {
+          asked.push({ before, limit });
+          const request = deferred<HistoryResponse>();
+          requests.push(request);
+          return request.promise;
+        },
+        onEvent: (e) => events.push(structuredClone(e)),
+        quietReloads: true,
+      });
+      steady.start();
+      requests[0]?.resolve(pageWithOlder(bar(120, 2), bar(180, 3)));
+      await flush();
+      const older = steady.loadOlder();
+      requests[1]?.resolve(pageWithOlder(bar(60, 1)));
+      await older;
+      live().resync();
+      requests[2]?.resolve(pageWithOlder(bar(120, 2), bar(180, 4)));
+      await flush();
+      expect(steady.current).toEqual([bar(60, 1), bar(120, 2), bar(180, 4)]);
+      void steady.loadOlder();
+      expect(asked[3]?.before).toBe(60);
     });
   });
 });
