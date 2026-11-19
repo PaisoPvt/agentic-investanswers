@@ -25,6 +25,8 @@ export interface ChartHandle {
 }
 
 export interface ChartFeedDeps {
+  /** Every event of the shown series, as it arrives (the freshness badge, UI-02). */
+  readonly onActivity?: (event: SeriesEvent) => void;
   readonly chart: () => ChartHandle | undefined;
   readonly newSeries: (
     instrument: string,
@@ -32,8 +34,6 @@ export interface ChartFeedDeps {
     handlers: { onEvent: (event: SeriesEvent) => void; onStatus: (status: SeriesStatus) => void },
   ) => BarSeries;
   readonly onStatus?: (status: SeriesStatus) => void;
-  /** Every event of the shown series, after it is applied (the freshness badge, UI-02). */
-  readonly onActivity?: (event: SeriesEvent) => void;
 }
 
 export class ChartFeed implements DataLoader {
@@ -92,11 +92,7 @@ export class ChartFeed implements DataLoader {
 
   private receive(key: string, event: SeriesEvent): void {
     if (key !== this.key) return;
-    this.apply(key, event);
     this.deps.onActivity?.(event);
-  }
-
-  private apply(key: string, event: SeriesEvent): void {
     if (event.type === 'reset') {
       const waiting = this.waiting;
       if (waiting?.key === key) {

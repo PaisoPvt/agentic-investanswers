@@ -75,15 +75,16 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
     if (created === null) return undefined;
     chart.current = created;
     const feed = new ChartFeed({
+      onActivity: (e) => {
+        activity.current?.(e);
+        // After the chart has taken the new bars: compare the import again.
+        if (e.type === 'reset') queueMicrotask(() => importLayer.current?.refresh());
+      },
       chart: () => chart.current ?? undefined,
       // Steady under frequent resyncs: one reload per 2 s at most, applying only what changed.
       newSeries: (symbol, tf, handlers) =>
         new BarSeries(symbol, tf, { live, history: (s, t) => client.history(s, t), minReloadGapMs: 2_000, quietReloads: true, ...handlers }),
       onStatus: (s) => status.current(s),
-      onActivity: (e) => {
-        if (e.type === 'reset') importLayer.current?.refresh();
-        activity.current?.(e);
-      },
     });
     created.setDataLoader(feed);
     registerOutputTemplate();

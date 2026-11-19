@@ -60,5 +60,5 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | todo | #45 |  |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | todo | #46 |  |
 | UI-01 | Drawing tools panel (client UI feedback) | done | #116 | #117 |
-| UI-02 | Data freshness badge (client UI feedback) | in review |  |  |
-| UI-03 | Import from TradingView: chart data and watchlists (client UI feedback) | in review |  |  |
+| UI-02 | Data freshness badge (client UI feedback) | in review | #120 |  |
+| UI-03 | Import from TradingView: chart data and watchlists (client UI feedback) | in review | #121 |  |
