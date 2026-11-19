@@ -47,7 +47,7 @@ Choices made to keep progress going, each built so it can be swapped later witho
 **T-06 · Starter rate limits, and edge (WAF) rules with the AWS stack** (2026-11-13, M2-10)
 - **Why:** usage limits per customer are not agreed yet, and the web application firewall (WAF) is an AWS service that comes with staging (F-01, M2-01).
 - **Affects:** each signed-in user may make 300 chart requests a minute and each agent key 120 (bars, plan and live connections; live updates on an open connection are not counted). Per client address: 10 sign-in attempts per 15 minutes and 5 new accounts an hour. Per account: 20 agent keys created or revoked an hour. Over a limit, the request is refused with "too many requests" and when to retry. A single request returns at most 1,000 bars. If the limit counter (Redis) is down, requests are let through rather than refused.
-- **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are not in the AWS stack yet: the dev deploy (2026-11-19) runs without them, with the app's own rate limits only. They are added before staging.
+- **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are not in the AWS stack yet: the dev deploy (2026-11-19) runs without them, with the app's own rate limits only. They are added on dev by M2-15, before staging (M2-16).
 
 
 **T-08 · Every plan can use indicators** (2026-11-14, M3-02)

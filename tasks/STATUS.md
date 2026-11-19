@@ -27,7 +27,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-14 | Split parity: exact build parity, reported source fidelity | done | #67 | #68 |
 | M1-15 | M1 scale-out: no bottleneck or dead end in the live data path | done | #81 | #87, #90, #94 |
 | M1-16 | Data layer boundary: one data-access interface for the rest of the app | done | #82 | #102 |
-| M2-01 | CDK staging stack | in review (dev deployed; staging account and WAF left) | #18 | #107 |
+| M2-01 | CDK staging stack | done | #18 | #107 |
 | M2-02 | Cache layer | done | #19 | #77 |
 | M2-03 | History API | done | #20 | #79 |
 | M2-04 | Live gateway | done | #21 | #80 |
@@ -41,6 +41,8 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-12 | Themes (light and dark) and mobile layout | todo | #29 |  |
 | M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | todo | #30 |  |
 | M2-14 | Chart sign-in screens | done | #108 | #109 |
+| M2-15 | Basic WAF rules in front of CloudFront | todo | #113 |  |
+| M2-16 | Deploy the stack to the staging account | blocked | #114 |  |
 | M3-01 | IndicatorDefinition interface | done | #31 | #85 |
 | M3-02 | Settings schema → settings dialog (generated from the declared inputs, with range limits) | done | #32 | #86, #105 |
 | M3-03 | Indicator parity harness | todo | #33 |  |
