@@ -24,6 +24,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import type { Construct } from 'constructs';
 
 import type { AiaEnvironment } from './environments.js';
@@ -233,8 +234,51 @@ export class AiaStack extends Stack {
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     };
+    // The WAF in front of everything (M2-15): AWS's free managed rule sets and
+    // a coarse per-address ceiling, well above the app's own per-user limits
+    // (config/safeguards.json), so it stops floods, never a normal user.
+    const managed = (name: string, priority: number, countOnly: string[] = []): wafv2.CfnWebACL.RuleProperty => ({
+      name,
+      priority,
+      statement: {
+        managedRuleGroupStatement: {
+          vendorName: 'AWS',
+          name,
+          ...(countOnly.length === 0 ? {} : { ruleActionOverrides: countOnly.map((rule) => ({ name: rule, actionToUse: { count: {} } })) }),
+        },
+      },
+      overrideAction: { none: {} },
+      visibilityConfig: { cloudWatchMetricsEnabled: true, sampledRequestsEnabled: true, metricName: `${prefix}-${name}` },
+    });
+    const waf = new wafv2.CfnWebACL(this, 'Waf', {
+      name: `${prefix}-cdn`,
+      scope: 'CLOUDFRONT',
+      defaultAction: { allow: {} },
+      visibilityConfig: { cloudWatchMetricsEnabled: true, sampledRequestsEnabled: true, metricName: `${prefix}-cdn` },
+      customResponseBodies: {
+        rateLimited: {
+          contentType: 'APPLICATION_JSON',
+          content: JSON.stringify({ error: { code: 'rate_limited', message: 'too many requests from this address; try again in a few minutes', retryAfterSeconds: 300 } }),
+        },
+      },
+      rules: [
+        {
+          name: 'PerAddressCeiling',
+          priority: 0,
+          statement: { rateBasedStatement: { limit: environment.wafRequestsPer5Min, evaluationWindowSec: 300, aggregateKeyType: 'IP' } },
+          action: { block: { customResponse: { responseCode: 429, customResponseBodyKey: 'rateLimited', responseHeaders: [{ name: 'Retry-After', value: '300' }] } } },
+          visibilityConfig: { cloudWatchMetricsEnabled: true, sampledRequestsEnabled: true, metricName: `${prefix}-ceiling` },
+        },
+        managed('AWSManagedRulesAmazonIpReputationList', 1),
+        managed('AWSManagedRulesKnownBadInputsRuleSet', 2),
+        // Large MCP or settings bodies are counted, never cut off.
+        managed('AWSManagedRulesCommonRuleSet', 3, ['SizeRestrictions_BODY']),
+      ],
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Cdn', {
       comment: `${prefix}: chart and platform`,
+      webAclId: waf.attrArn,
       defaultRootObject: 'index.html',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       defaultBehavior: {

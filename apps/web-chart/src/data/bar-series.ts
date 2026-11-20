@@ -12,12 +12,19 @@
 // reload changed, without a reset or a "loading" status, unless the new page
 // does not overlap what is on screen.
 //
+// Older history (M2-06): `loadOlder()` fetches the page before the oldest
+// loaded bar and prepends it, one page at a time, until the History API's
+// cursor (`next`) runs out. A quiet reload keeps those older bars; a reset
+// goes back to the newest page. An older page that arrives after a reset is
+// dropped.
+//
 // Applying an update: a newer bar is appended, the same time replaces the
 // newest bar, and an older time replaces that bar in place: the protocol
 // revises the previous bar every minute (its stored value replacing the
 // forming one), so a revision is normal, not an error.
 
 import type { DisplayBar, HistoryResponse, LiveErrorCode, LiveWireUpdate } from '@aia/client-contract';
+import { HISTORY_MAX_LIMIT } from '@aia/client-contract';
 import type { Timeframe } from '@aia/shared-kernel';
 
 import type { LiveListener } from './live-connection.js';
@@ -36,7 +43,8 @@ export type SeriesStatus =
 
 export interface BarSeriesDeps {
   readonly live: { subscribe(instrument: string, tf: Timeframe, listener: LiveListener): () => void };
-  readonly history: (instrument: string, tf: Timeframe) => Promise<HistoryResponse>;
+  /** The newest page, or with `before` the page before that bar time. */
+  readonly history: (instrument: string, tf: Timeframe, before?: number, limit?: number) => Promise<HistoryResponse>;
   readonly onEvent: (event: SeriesEvent) => void;
   readonly onStatus?: (status: SeriesStatus) => void;
   /** Reloads at most once per this many milliseconds; 0 (default) reloads on every resync. */
@@ -62,6 +70,11 @@ export class BarSeries {
   private cooling = false;
   private pending = false;
   private lastState: SeriesStatus['state'] | undefined;
+  /** The History API's cursor for the page before the oldest loaded bar; null when there is none. */
+  private next: number | null = null;
+  /** Bumped whenever the loaded bars are replaced (and by stop), so an older page for the old ones is dropped. */
+  private epoch = 0;
+  private olderLoad: Promise<readonly DisplayBar[]> | undefined;
 
   constructor(
     readonly instrument: string,
@@ -79,6 +92,37 @@ export class BarSeries {
     return this.held === undefined;
   }
 
+  /** True while there is stored history before the oldest loaded bar. */
+  get hasOlder(): boolean {
+    return this.loaded && this.next !== null;
+  }
+
+  /**
+   * Prepends the page before the oldest loaded bar and returns its bars (none
+   * when there is nothing older, or when the series was replaced meanwhile).
+   * A call while one is under way shares it. Rejects when the request fails.
+   */
+  loadOlder(): Promise<readonly DisplayBar[]> {
+    if (this.olderLoad !== undefined) return this.olderLoad;
+    const before = this.next;
+    if (this.stopped || !this.loaded || before === null) return Promise.resolve([]);
+    const epoch = this.epoch;
+    const load = this.deps.history(this.instrument, this.timeframe, before, HISTORY_MAX_LIMIT).then((page) => {
+      if (epoch !== this.epoch) return [];
+      const oldest = this.bars[0]?.time ?? Number.POSITIVE_INFINITY;
+      const older = page.bars.filter((bar) => bar.time < oldest);
+      this.bars = [...older, ...this.bars];
+      this.next = page.next;
+      return older;
+    });
+    this.olderLoad = load;
+    const done = () => {
+      if (this.olderLoad === load) this.olderLoad = undefined;
+    };
+    load.then(done, done);
+    return load;
+  }
+
   start(): void {
     this.unsubscribe = this.deps.live.subscribe(this.instrument, this.timeframe, {
       updates: (updates) => this.receive(updates),
@@ -91,6 +135,7 @@ export class BarSeries {
   stop(): void {
     this.stopped = true;
     this.generation++;
+    this.epoch++;
     this.unsubscribe?.();
     this.unsubscribe = undefined;
   }
@@ -147,6 +192,8 @@ export class BarSeries {
       return;
     }
     this.bars = [...page.bars];
+    this.next = page.next;
+    this.epoch++;
     const held = this.held ?? [];
     this.held = undefined;
     for (const update of held) this.apply(update.bar, false);

@@ -3,7 +3,8 @@
 // test needs no Redis, S3, DynamoDB or provider. Never used in production.
 //
 // - History: made-up 1-minute bars for BTCUSD and ETHUSD, the same on every
-//   run, for the 30 days before NOW, and 5m to 4h bars rolled up from them
+//   run, for the 2 years and a month before NOW (so the chart can scroll back 2
+//   years, M2-06), and 5m to 4h bars rolled up from them
 //   (first open, highest high, lowest low, last close, summed volume).
 // - Live: the data layer's simulated feed (the same forming and stored bar
 //   rules as `pnpm live`), driven by the test through two routes:
@@ -37,7 +38,7 @@ import { settingsDemo } from './settings-demo-indicator.js';
 
 /** 2026-11-10 12:00 UTC: a 4h boundary, so every timeframe's bar starts here. */
 export const E2E_NOW = 1_794_312_000;
-const HISTORY_DAYS = 30;
+const HISTORY_DAYS = 2 * 365 + 31;
 const INSTRUMENTS = [BTCUSD, ETHUSD];
 /** Where each instrument's made-up prices hover, in display units. */
 const BASE_PRICE: Readonly<Record<string, number>> = { BTCUSD: 90_000, ETHUSD: 3_000 };

@@ -233,3 +233,46 @@ describe('live minute latency (M1-11)', () => {
   });
 });
 
+describe('WAF (M2-15)', () => {
+  type Rule = {
+    Name: string;
+    Priority: number;
+    Statement: { ManagedRuleGroupStatement?: { VendorName: string; Name: string; RuleActionOverrides?: unknown }; RateBasedStatement?: unknown };
+    Action?: unknown;
+    OverrideAction?: unknown;
+  };
+  const acl = () => ofType('AWS::WAFv2::WebACL')[0]?.[1].Properties as { Scope: string; DefaultAction: unknown; Rules: Rule[]; CustomResponseBodies: Record<string, { Content: string }> };
+
+  it('puts one web ACL on the distribution, allowing by default', () => {
+    expect(ofType('AWS::WAFv2::WebACL')).toHaveLength(1);
+    expect(acl()).toMatchObject({ Scope: 'CLOUDFRONT', DefaultAction: { Allow: {} } });
+    const distribution = ofType('AWS::CloudFront::Distribution')[0]?.[1].Properties['DistributionConfig'] as { WebACLId: unknown };
+    expect(distribution.WebACLId).toEqual({ 'Fn::GetAtt': [logicalId('Waf', 'AWS::WAFv2::WebACL'), 'Arn'] });
+  });
+
+  it('has exactly the per-address ceiling and three AWS managed rule sets', () => {
+    expect(acl().Rules.map((r) => r.Name)).toEqual([
+      'PerAddressCeiling',
+      'AWSManagedRulesAmazonIpReputationList',
+      'AWSManagedRulesKnownBadInputsRuleSet',
+      'AWSManagedRulesCommonRuleSet',
+    ]);
+    for (const rule of acl().Rules.slice(1)) {
+      expect(rule.Statement.ManagedRuleGroupStatement).toMatchObject({ VendorName: 'AWS', Name: rule.Name });
+      expect(rule.OverrideAction).toEqual({ None: {} });
+    }
+  });
+
+  it('answers over the ceiling with 429 in the app\'s error shape', () => {
+    const ceiling = acl().Rules[0] as Rule;
+    expect(ceiling.Statement.RateBasedStatement).toEqual({ Limit: 3_000, EvaluationWindowSec: 300, AggregateKeyType: 'IP' });
+    expect(ceiling.Action).toMatchObject({ Block: { CustomResponse: { ResponseCode: 429, CustomResponseBodyKey: 'rateLimited' } } });
+    const body = JSON.parse(acl().CustomResponseBodies['rateLimited']?.Content ?? '{}') as { error: { code: string } };
+    expect(body.error.code).toBe('rate_limited');
+  });
+
+  it('counts large request bodies instead of blocking them', () => {
+    const common = acl().Rules.find((r) => r.Name === 'AWSManagedRulesCommonRuleSet') as Rule;
+    expect(common.Statement.ManagedRuleGroupStatement?.RuleActionOverrides).toEqual([{ Name: 'SizeRestrictions_BODY', ActionToUse: { Count: {} } }]);
+  });
+});

@@ -16,6 +16,9 @@ class FakeSeries {
   stopped = false;
   loaded = false;
   current: DisplayBar[] = [];
+  hasOlder = false;
+  /** Older page requests, settled by the test. */
+  older: { resolve: (bars: DisplayBar[]) => void; reject: (e: unknown) => void }[] = [];
   constructor(
     readonly instrument: string,
     readonly timeframe: Timeframe,
@@ -26,6 +29,17 @@ class FakeSeries {
   }
   stop() {
     this.stopped = true;
+  }
+  loadOlder(): Promise<readonly DisplayBar[]> {
+    return new Promise((resolve, reject) =>
+      this.older.push({
+        resolve: (bars) => {
+          this.current = [...bars, ...this.current];
+          resolve(bars);
+        },
+        reject,
+      }),
+    );
   }
   load(bars: DisplayBar[]) {
     this.current = bars;
@@ -58,12 +72,18 @@ let chart: FakeChart;
 let series: FakeSeries[];
 let statuses: SeriesStatus[];
 let feed: ChartFeed;
+let olderAdded: number;
+let nowMs: number;
 
 beforeEach(() => {
   chart = new FakeChart();
   series = [];
   statuses = [];
+  olderAdded = 0;
+  nowMs = 0;
   feed = new ChartFeed({
+    onOlder: () => olderAdded++,
+    now: () => nowMs,
     chart: () => chart,
     newSeries: (instrument, tf, handlers) => {
       const s = new FakeSeries(instrument, tf, handlers);
@@ -152,7 +172,7 @@ describe('ChartFeed', () => {
     expect(statuses).toEqual([{ state: 'error', code: 'forbidden', message: 'no' }]);
   });
 
-  it('answers older history requests with nothing for now (scroll-back is M2-06)', () => {
+  it('answers a request for newer bars (KLineChart\'s `backward`) with nothing', () => {
     const got: [KLineData[], unknown][] = [];
     void feed.getBars({ type: 'backward', timestamp: 60_000, symbol: { ticker: 'BTCUSD', pricePrecision: 2, volumePrecision: 8 }, period: MINUTE, callback: (d, more) => got.push([d, more]) });
     expect(got).toEqual([[[], false]]);
@@ -162,5 +182,92 @@ describe('ChartFeed', () => {
     init('BTCUSD', MINUTE);
     feed.dispose();
     expect(latest().stopped).toBe(true);
+  });
+
+  describe('older history (M2-06; KLineChart 10.1 asks with `forward`)', () => {
+    const symbol = { ticker: 'BTCUSD', pricePrecision: 2, volumePrecision: 8 };
+    /** KLineChart's request for older bars; prepends what it gets, as 10.1.0 does. */
+    function older(): [KLineData[], unknown][] {
+      const got: [KLineData[], unknown][] = [];
+      void feed.getBars({
+        type: 'forward',
+        timestamp: chart.list[0]?.timestamp ?? null,
+        symbol,
+        period: MINUTE,
+        callback: (d, more) => {
+          got.push([d, more]);
+          chart.list = [...d, ...chart.list];
+        },
+      });
+      return got;
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('tells the chart on the first load whether there is older history', () => {
+      const got: unknown[] = [];
+      void feed.getBars({ type: 'init', timestamp: null, symbol, period: MINUTE, callback: (_d, more) => got.push(more) });
+      latest().hasOlder = true;
+      latest().load([bar(120, 2)]);
+      expect(got).toEqual([{ forward: true, backward: false }]);
+    });
+
+    it('loads the page before the oldest bar, prepends it, and says whether there is more', async () => {
+      init('BTCUSD', MINUTE);
+      latest().hasOlder = true;
+      latest().load([bar(120, 2)]);
+      const got = older();
+      expect(latest().older).toHaveLength(1);
+      latest().hasOlder = false;
+      latest().older[0]?.resolve([bar(60, 1)]);
+      await settle();
+      expect(got).toEqual([[[toKLine(bar(60, 1))], { forward: false, backward: false }]]);
+      expect(chart.list.map((d) => d.timestamp)).toEqual([60_000, 120_000]);
+      expect(olderAdded).toBe(1);
+    });
+
+    it('asks nothing when there is no older history', () => {
+      init('BTCUSD', MINUTE);
+      latest().load([bar(120, 2)]);
+      expect(older()).toEqual([[[], { forward: false, backward: false }]]);
+      expect(latest().older).toHaveLength(0);
+    });
+
+    it('after a failure answers with nothing and asks the server again only after the wait', async () => {
+      init('BTCUSD', MINUTE);
+      latest().hasOlder = true;
+      latest().load([bar(120, 2)]);
+      const failed = older();
+      latest().older[0]?.reject(new Error('offline'));
+      await settle();
+      expect(failed).toEqual([[[], { forward: true, backward: false }]]);
+      nowMs = 4_999;
+      expect(older()).toEqual([[[], { forward: true, backward: false }]]);
+      expect(latest().older).toHaveLength(1);
+      nowMs = 5_000;
+      older();
+      expect(latest().older).toHaveLength(2);
+      expect(olderAdded).toBe(0);
+    });
+
+    it('answers a request that outlived its series, or a reset, with nothing', async () => {
+      init('BTCUSD', MINUTE);
+      const old = latest();
+      old.hasOlder = true;
+      old.load([bar(120, 2)]);
+      const stale = older();
+      init('BTCUSD', HOUR);
+      latest().load([bar(3_600, 5)]);
+      old.older[0]?.resolve([bar(60, 1)]);
+      await settle();
+      expect(stale).toEqual([[[], { forward: false, backward: false }]]);
+
+      latest().hasOlder = true;
+      const afterReset = older();
+      chart.list = [toKLine(bar(0, 9))];
+      latest().older[0]?.resolve([bar(1_800, 4)]);
+      await settle();
+      expect(afterReset[0]?.[0]).toEqual([]);
+      expect(olderAdded).toBe(0);
+    });
   });
 });
