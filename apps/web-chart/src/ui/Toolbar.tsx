@@ -19,9 +19,11 @@ export interface ToolbarProps {
   readonly onIndicator?: (id: string) => void;
   /** The signed-in account and Sign out (M2-14); none in developer access. */
   readonly session?: Session | undefined;
+  /** Opens the file picker for a TradingView export (UI-03). */
+  readonly onImport?: () => void;
 }
 
-export function Toolbar({ instruments, instrument, timeframe, onInstrument, onTimeframe, indicators = [], onIndicator, session }: ToolbarProps) {
+export function Toolbar({ instruments, instrument, timeframe, onInstrument, onTimeframe, indicators = [], onIndicator, session, onImport }: ToolbarProps) {
   return (
     <div className="toolbar">
       <select aria-label="Instrument" data-testid="instrument" value={instrument.symbol} onChange={(e) => onInstrument(e.target.value)}>
@@ -60,6 +62,11 @@ export function Toolbar({ instruments, instrument, timeframe, onInstrument, onTi
             </option>
           ))}
         </select>
+      )}
+      {onImport !== undefined && (
+        <button type="button" data-testid="import-tradingview" title="Import chart data (.csv) or a watchlist (.txt) exported from TradingView" onClick={onImport}>
+          Import from TradingView
+        </button>
       )}
       {session !== undefined && (
         <div className="account">

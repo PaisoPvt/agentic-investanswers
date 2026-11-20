@@ -14,13 +14,16 @@ import { ChartFeed } from '../chart/chart-feed.js';
 import type { DrawingLayer } from '../chart/drawing-layer.js';
 import { registerDrawingTemplates } from '../chart/drawing-templates.js';
 import type { ShownIndicator } from '../chart/indicator-layer.js';
+import type { ShownImport } from '../chart/import-layer.js';
+import { ImportLayer } from '../chart/import-layer.js';
 import { IndicatorLayer } from '../chart/indicator-layer.js';
 import { registerOutputTemplate } from '../chart/output-template.js';
 import { periodOf } from '../chart/periods.js';
 import { BarSeries } from '../data/bar-series.js';
-import type { SeriesStatus } from '../data/bar-series.js';
+import type { SeriesEvent, SeriesStatus } from '../data/bar-series.js';
 import type { LiveConnection } from '../data/live-connection.js';
 import type { PlatformClient } from '../data/platform-client.js';
+import type { MatchReport } from '../import/compare.js';
 
 declare global {
   interface Window {
@@ -41,11 +44,17 @@ export interface ChartViewProps {
   readonly onIndicatorError?: (indicatorId: string, message: string | undefined) => void;
   /** The trader's drawings (UI-01), attached to this chart while it exists. */
   readonly drawings?: DrawingLayer | undefined;
+  /** Every event of the shown series (the freshness badge, UI-02). */
+  readonly onActivity?: (event: SeriesEvent) => void;
+  /** Imported TradingView chart data to draw over the bars (UI-03). */
+  readonly imported?: ShownImport | undefined;
+  /** How the import matches the chart's bars; undefined while it is not on this chart. */
+  readonly onImportReport?: (report: MatchReport | undefined) => void;
 }
 
 const NONE: readonly ShownIndicator[] = [];
 
-export function ChartView({ client, live, instrument, timeframe, onStatus, indicators = NONE, onIndicatorError, drawings }: ChartViewProps) {
+export function ChartView({ client, live, instrument, timeframe, onStatus, indicators = NONE, onIndicatorError, drawings, onActivity, imported, onImportReport }: ChartViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<Chart | null>(null);
   const layer = useRef<IndicatorLayer | null>(null);
@@ -53,6 +62,11 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
   status.current = onStatus;
   const indicatorError = useRef(onIndicatorError);
   indicatorError.current = onIndicatorError;
+  const activity = useRef(onActivity);
+  activity.current = onActivity;
+  const importReport = useRef(onImportReport);
+  importReport.current = onImportReport;
+  const importLayer = useRef<ImportLayer | null>(null);
 
   useEffect(() => {
     const element = container.current;
@@ -61,6 +75,11 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
     if (created === null) return undefined;
     chart.current = created;
     const feed = new ChartFeed({
+      onActivity: (e) => {
+        activity.current?.(e);
+        // After the chart has taken the new bars: compare the import again.
+        if (e.type === 'reset') queueMicrotask(() => importLayer.current?.refresh());
+      },
       chart: () => chart.current ?? undefined,
       // Steady under frequent resyncs: one reload per 2 s at most, applying only what changed.
       newSeries: (symbol, tf, handlers) =>
@@ -76,6 +95,7 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
       fetch: (id, request) => client.indicatorOutputs(id, request),
       onError: (id, message) => indicatorError.current?.(id, message),
     });
+    importLayer.current = new ImportLayer({ chart: () => chart.current ?? undefined, onReport: (r) => importReport.current?.(r) });
     registerDrawingTemplates();
     drawings?.attach(created);
     window.__aiaChart = created;
@@ -86,6 +106,8 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
       drawings?.attach(undefined);
       layer.current?.dispose();
       layer.current = null;
+      importLayer.current?.dispose();
+      importLayer.current = null;
       feed.dispose();
       dispose(element);
       chart.current = null;
@@ -106,6 +128,10 @@ export function ChartView({ client, live, instrument, timeframe, onStatus, indic
   useEffect(() => {
     layer.current?.show({ instrument: symbol, timeframe, pricePrecision }, indicators);
   }, [client, live, symbol, timeframe, pricePrecision, indicators]);
+
+  useEffect(() => {
+    importLayer.current?.show({ instrument: symbol, timeframe, pricePrecision }, imported);
+  }, [client, live, symbol, timeframe, pricePrecision, imported]);
 
   return <div ref={container} className="chart" data-testid="chart" />;
 }
