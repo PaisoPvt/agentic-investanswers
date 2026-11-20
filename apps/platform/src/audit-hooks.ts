@@ -65,7 +65,7 @@ function details(request: FastifyRequest): Pick<UsageRecord, 'instrument' | 'tim
   const found = {
     instrument: detail(field(query, 'instrument') ?? field(body, 'instrument') ?? field(args, 'instrument')),
     timeframe: detail(field(query, 'tf') ?? field(body, 'timeframe') ?? field(args, 'tf')),
-    indicator: detail(field(params, 'id') ?? field(args, 'indicatorId')),
+    indicator: detail(field(params, 'id') ?? field(args, 'indicator')),
     tool: detail(field(call, 'name')),
   };
   return Object.fromEntries(Object.entries(found).filter(([, v]) => v !== undefined));

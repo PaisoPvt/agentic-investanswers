@@ -116,13 +116,18 @@ describe('usage and audit records (M4-04)', () => {
     const sam = await signUp(a, 'sam@example.com');
     const agent = await newKey(a, sam.token);
 
-    const mcp = await fetch(`http://127.0.0.1:${port}/mcp`, {
-      method: 'POST',
-      headers: { ...auth(agent.key), 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_bars', arguments: { instrument: 'BTCUSD', tf: '1h' } } }),
-    });
-    expect(mcp.status).toBe(200);
-    await mcp.text();
+    const tool = async (name: string, args: Record<string, unknown>) => {
+      const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+        method: 'POST',
+        headers: { ...auth(agent.key), 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }),
+      });
+      expect(res.status).toBe(200);
+      await res.text();
+    };
+    await tool('get_bars', { instrument: 'BTCUSD', tf: '1h' });
+    // No indicators on this server, so the tool refuses; the record still says what was asked.
+    await tool('get_indicator_output', { indicator: 'sma', instrument: 'BTCUSD', tf: '1h' });
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/live?token=${encodeURIComponent(agent.key)}`);
     await new Promise<void>((resolve, reject) => {
@@ -140,9 +145,10 @@ describe('usage and audit records (M4-04)', () => {
 
     const all = await records();
     const agents = all.filter((r) => r.subject.kind === 'agent');
-    expect(agents.map((r) => [r.route, r.status, r.tool ?? null, r.instrument ?? null, r.timeframe ?? null])).toEqual([
-      ['/mcp', 200, 'get_bars', 'BTCUSD', '1h'],
-      ['/live', 101, null, null, null],
+    expect(agents.map((r) => [r.route, r.status, r.tool ?? null, r.indicator ?? null, r.instrument ?? null, r.timeframe ?? null])).toEqual([
+      ['/mcp', 200, 'get_bars', null, 'BTCUSD', '1h'],
+      ['/mcp', 200, 'get_indicator_output', 'sma', 'BTCUSD', '1h'],
+      ['/live', 101, null, null, null, null],
     ]);
     for (const r of agents) expect(r.subject).toEqual({ kind: 'agent', id: agent.id, owner: sam.id });
     expect(all.find((r) => r.route === '/live' && r.status === 401)?.subject.kind).toBe('anonymous');
