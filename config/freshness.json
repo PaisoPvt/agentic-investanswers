@@ -1,0 +1,4 @@
+{
+  "$comment": "Freshness thresholds (M2-07): the p95 delay after a minute closes, in seconds, for it to be in storage (raw), in the History API (cache first) and on an open chart. Starter numbers until OI-24 sets the delay promised to customers. Changing these needs no code change; `pnpm freshness` reads them each run.",
+  "p95Seconds": { "storage": 5, "cache": 5, "chart": 5 }
+}

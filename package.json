@@ -18,6 +18,7 @@
     "cook": "tsx apps/hydration/src/cook.ts",
     "rebuild-check": "tsx apps/hydration/src/rebuild-check.ts",
     "load-hydration": "tsx --env-file-if-exists=.env apps/hydration/src/load-hydration.ts",
+    "freshness": "tsx --env-file-if-exists=.env apps/hydration/src/freshness.ts",
     "platform": "tsx --env-file-if-exists=.env apps/platform/src/main.ts",
     "usage": "tsx --env-file-if-exists=.env apps/platform/src/usage-cli.ts",
     "chart": "pnpm --filter @aia/app-web-chart dev",
