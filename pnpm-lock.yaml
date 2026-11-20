@@ -38,6 +38,9 @@ importers:
 
   apps/hydration:
     dependencies:
+      '@aia/client-contract':
+        specifier: workspace:*
+        version: link:../../contexts/client-contract
       '@aia/hydration':
         specifier: workspace:*
         version: link:../../contexts/hydration

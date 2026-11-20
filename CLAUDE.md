@@ -23,7 +23,8 @@ Read before planning: `docs/architecture.md`, `docs/bar-rules.md`, `docs/glossar
 - `pnpm check`: lint, test and typecheck for affected projects (same as CI)
 - `pnpm owner-inputs [--task <ID>]`: what Sham still owes; with `--task`, exits non-zero if that task is blocked
 - `pnpm status`: task counts from `tasks/STATUS.md`
-- Added by later tasks: `pnpm parity` (M1-03), `pnpm rebuild-check` (M1-10), `pnpm freshness` (M2-07), `pnpm parity:indicators` (M3-03). Until they exist, say so instead of claiming they passed.
+- `pnpm freshness` (M2-07): how fresh a running environment is, per step, against `config/freshness.json`; needs `AIA_FRESHNESS_KEY` (an agent key). Run it after each staging release.
+- Added by later tasks: `pnpm parity` (M1-03), `pnpm rebuild-check` (M1-10), `pnpm parity:indicators` (M3-03). Until they exist, say so instead of claiming they passed.
 
 ## Stack
 TypeScript on Node.js, pnpm + Nx, Vitest, Playwright. React + KLineChart (open source, Apache 2.0; no TradingView libraries, per the client). Parquet (zstd) on S3; DynamoDB for user, access and agent data; ElastiCache Redis for hot bars. AWS CDK (TypeScript). Deferred for the MVP: gRPC/proto contracts, separate services.

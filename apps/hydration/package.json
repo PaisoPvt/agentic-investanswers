@@ -14,6 +14,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@aia/client-contract": "workspace:*",
     "@aia/hydration": "workspace:*",
     "@aia/market-data": "workspace:*",
     "@aia/shared-kernel": "workspace:*"
