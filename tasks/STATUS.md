@@ -32,7 +32,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-03 | History API | done | #20 | #79 |
 | M2-04 | Live gateway | done | #21 | #80 |
 | M2-05 | Chart app | done | #22 | #103 |
-| M2-06 | Scroll-back paging, smooth loading of older history | todo | #23 |  |
+| M2-06 | Scroll-back paging, smooth loading of older history | in review | #23 | #115 |
 | M2-07 | Freshness checker | todo | #24 |  |
 | M2-08 | The app's own sign-up and sign-in (InvestAnswers sign-in later) | done | #25 | #92 |
 | M2-09 | Plan-based access on placeholder plans | done | #26 | #95 |
@@ -41,7 +41,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-12 | Themes (light and dark) and mobile layout | todo | #29 |  |
 | M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | todo | #30 |  |
 | M2-14 | Chart sign-in screens | done | #108 | #109 |
-| M2-15 | Basic WAF rules in front of CloudFront | todo | #113 |  |
+| M2-15 | Basic WAF rules in front of CloudFront | in review (deploy check after merge) | #113 | #118 |
 | M2-16 | Deploy the stack to the staging account | blocked | #114 |  |
 | M3-01 | IndicatorDefinition interface | done | #31 | #85 |
 | M3-02 | Settings schema → settings dialog (generated from the declared inputs, with range limits) | done | #32 | #86, #105 |
@@ -52,11 +52,11 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M3-07a | ATR port, slice 1: plotted values (agentic-investanswers-indicators) | Phase 1 | #37 |  |
 | M3-07b | ATR port, slice 2: signals | Phase 1 | #38 |  |
 | M3-07c | ATR port, slice 3: backtest | Phase 1 | #39 |  |
-| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | todo | #40 |  |
+| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | in review | #40 |  |
 | M4-01 | Agent identity | done | #41 | #97 |
 | M4-02 | Read-only MCP tools | done | #42 | #101 |
 | M4-03 | Read-only agent API endpoints | todo | #43 |  |
-| M4-04 | Usage and audit records for every human and agent request | todo | #44 |  |
+| M4-04 | Usage and audit records for every human and agent request | in review | #44 | #119 |
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | todo | #45 |  |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | todo | #46 |  |
 | UI-01 | Drawing tools panel (client UI feedback) | done | #116 | #117 |

@@ -10,10 +10,15 @@
 //   protocol revises the previous bar every minute. So a revision patches the
 //   bar in the chart's own list (getDataList returns it) and re-sends the
 //   newest bar, which makes the chart recompute its range and redraw.
-// - Older history (scroll-back) is M2-06: the chart is told there is no more.
+// - Older history (M2-06): when the chart's left edge comes into view,
+//   KLineChart asks for more with type `forward` (in 10.1 `forward` prepends
+//   older bars and `backward` appends newer ones). The series loads the page
+//   before its oldest bar. Every request is answered, even a failed or stale
+//   one, because an unanswered load blocks the chart's later loads; after a
+//   failure the server is not asked again for a few seconds.
 
 import type { Timeframe } from '@aia/shared-kernel';
-import type { DataLoader, DataLoaderGetBarsParams, DataLoaderSubscribeBarParams, KLineData } from 'klinecharts';
+import type { DataLoader, DataLoadMore, DataLoaderGetBarsParams, DataLoaderSubscribeBarParams, KLineData } from 'klinecharts';
 
 import type { BarSeries, SeriesEvent, SeriesStatus } from '../data/bar-series.js';
 import { timeframeOf, toKLine } from './periods.js';
@@ -34,7 +39,14 @@ export interface ChartFeedDeps {
     handlers: { onEvent: (event: SeriesEvent) => void; onStatus: (status: SeriesStatus) => void },
   ) => BarSeries;
   readonly onStatus?: (status: SeriesStatus) => void;
+  /** Told after an older page was added to the chart. */
+  readonly onOlder?: () => void;
+  /** Milliseconds since the epoch; tests set it. */
+  readonly now?: () => number;
 }
+
+/** How long a failed older page waits before the server is asked again. */
+export const OLDER_RETRY_MS = 5_000;
 
 export class ChartFeed implements DataLoader {
   private series: BarSeries | undefined;
@@ -42,10 +54,16 @@ export class ChartFeed implements DataLoader {
   /** KLineChart's callback for the first load, until the series has bars. */
   private waiting: { readonly key: string; readonly callback: DataLoaderGetBarsParams['callback'] } | undefined;
   private push: ((bar: KLineData) => void) | undefined;
+  /** No older page is requested before this time (after a failure). */
+  private olderRetryAt = 0;
 
   constructor(private readonly deps: ChartFeedDeps) {}
 
   getBars = ({ type, symbol, period, callback }: DataLoaderGetBarsParams): void => {
+    if (type === 'forward') {
+      void this.older(callback);
+      return;
+    }
     if (type !== 'init') {
       callback([], false);
       return;
@@ -57,7 +75,7 @@ export class ChartFeed implements DataLoader {
     }
     const key = `${symbol.ticker}|${tf}`;
     if (key === this.key && this.series?.loaded === true) {
-      callback(this.series.current.map(toKLine), false);
+      callback(this.series.current.map(toKLine), this.more());
       return;
     }
     if (key !== this.key) {
@@ -90,6 +108,33 @@ export class ChartFeed implements DataLoader {
     this.push = undefined;
   }
 
+  /** Whether the chart may ask for older bars. */
+  private more(): DataLoadMore {
+    return { forward: this.series?.hasOlder === true, backward: false };
+  }
+
+  private async older(callback: DataLoaderGetBarsParams['callback']): Promise<void> {
+    const series = this.series;
+    const now = this.deps.now?.() ?? Date.now();
+    if (series === undefined || !series.hasOlder || now < this.olderRetryAt) {
+      callback([], this.more());
+      return;
+    }
+    let older: readonly KLineData[] = [];
+    try {
+      older = (await series.loadOlder()).map(toKLine);
+    } catch {
+      this.olderRetryAt = (this.deps.now?.() ?? Date.now()) + OLDER_RETRY_MS;
+    }
+    // Another series, or bars that no longer end before the chart's oldest (a reset meanwhile).
+    const newestOlder = older.at(-1)?.timestamp;
+    const oldestShown = this.deps.chart()?.getDataList()[0]?.timestamp;
+    const fits = newestOlder === undefined || (oldestShown !== undefined && newestOlder < oldestShown);
+    const stale = series !== this.series || !fits;
+    callback(stale ? [] : [...older], this.more());
+    if (!stale && older.length > 0) this.deps.onOlder?.();
+  }
+
   private receive(key: string, event: SeriesEvent): void {
     if (key !== this.key) return;
     this.deps.onActivity?.(event);
@@ -97,7 +142,7 @@ export class ChartFeed implements DataLoader {
       const waiting = this.waiting;
       if (waiting?.key === key) {
         this.waiting = undefined;
-        waiting.callback(event.bars.map(toKLine), false);
+        waiting.callback(event.bars.map(toKLine), this.more());
       } else {
         this.deps.chart()?.resetData();
       }

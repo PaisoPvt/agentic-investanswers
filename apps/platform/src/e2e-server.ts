@@ -3,7 +3,8 @@
 // test needs no Redis, S3, DynamoDB or provider. Never used in production.
 //
 // - History: made-up 1-minute bars for BTCUSD and ETHUSD, the same on every
-//   run, for the 30 days before NOW, and 5m to 4h bars rolled up from them
+//   run, for the 2 years and a month before NOW (so the chart can scroll back 2
+//   years, M2-06), and 5m to 4h bars rolled up from them
 //   (first open, highest high, lowest low, last close, summed volume).
 // - Live: the data layer's simulated feed (the same forming and stored bar
 //   rules as `pnpm live`), driven by the test through two routes:
@@ -16,13 +17,14 @@
 // - Access: local developer mode, everything allowed; or, with --sign-in
 //   (M2-14), the app's own sign-in on in-memory accounts, every account on a
 //   plan that includes everything.
-// - Indicators: the test-only settingsDemo (never a real indicator, rule 5),
+// - Indicators: the test-only settingsDemo and leakCanary (never real indicators, rule 5),
 //   run by the real engine with a memory cache.
 //
 //   tsx apps/platform/src/e2e-server.ts             (AIA_PORT, default 8181)
 //   tsx apps/platform/src/e2e-server.ts --sign-in
 
 import { accessFromEnv, parsePlanBook } from '@aia/access';
+import { AuditLog, MemoryUsageRecordStore } from '@aia/audit';
 import type { LiveBarUpdate } from '@aia/data';
 import { BTCUSD, ETHUSD, MemoryDataLayer, SimulatedLiveFeed } from '@aia/data';
 import { IndicatorEngine, IndicatorRegistry, MemoryIndicatorOutputCache } from '@aia/indicators';
@@ -33,11 +35,12 @@ import type { FastifyInstance } from 'fastify';
 
 import { IndicatorBars } from './indicator-bars.js';
 import { buildServer } from './server.js';
+import { leakCanary } from './leak-canary-indicator.js';
 import { settingsDemo } from './settings-demo-indicator.js';
 
 /** 2026-11-10 12:00 UTC: a 4h boundary, so every timeframe's bar starts here. */
 export const E2E_NOW = 1_794_312_000;
-const HISTORY_DAYS = 30;
+const HISTORY_DAYS = 2 * 365 + 31;
 const INSTRUMENTS = [BTCUSD, ETHUSD];
 /** Where each instrument's made-up prices hover, in display units. */
 const BASE_PRICE: Readonly<Record<string, number>> = { BTCUSD: 90_000, ETHUSD: 3_000 };
@@ -180,7 +183,8 @@ export async function startE2EServer(port: number, options: { readonly signIn?: 
   const announcer = data.announcer('e2e');
   const feeds = new Map(INSTRUMENTS.map((i) => [i.symbol, new E2ELive(i)]));
 
-  const indicators = new IndicatorRegistry([settingsDemo]);
+  // The leak canary (M3-08): internals the leak test looks for everywhere outside the engine.
+  const indicators = new IndicatorRegistry([settingsDemo, leakCanary]);
   const indicatorBars = new IndicatorBars({ data, now: () => barTime(E2E_NOW) });
   const engine = new IndicatorEngine({ registry: indicators, bars: indicatorBars, cache: new MemoryIndicatorOutputCache() });
 
@@ -192,6 +196,8 @@ export async function startE2EServer(port: number, options: { readonly signIn?: 
     indicators,
     indicatorRunner: { drawn: (r) => engine.drawn(r), forming: (i, t) => indicatorBars.forming(i, t) },
     now: () => barTime(E2E_NOW),
+    // Usage and audit records in memory (M4-04), so every route runs as on AWS.
+    audit: new AuditLog({ store: new MemoryUsageRecordStore() }),
     logger: false,
   });
 

@@ -13,6 +13,7 @@
 import type { SignIn, SignUpError } from '@aia/access';
 import type { FastifyInstance } from 'fastify';
 
+import { noteHuman } from './audit-hooks.js';
 import type { Limits } from './rate-limit.js';
 import { refusedForRate } from './rate-limit.js';
 
@@ -43,6 +44,7 @@ export function mountAuthRoutes(app: FastifyInstance, signIn: SignIn, limits?: L
     if (fields === undefined) return reply.code(400).send(BAD_BODY);
     const result = await signIn.signUp(fields.email, fields.password);
     if (!result.ok) return reply.code(SIGN_UP_STATUS[result.code]).send(error(result.code, result.message));
+    noteHuman(result.account.id);
     return reply.code(201).send({ token: result.token, account: result.account });
   });
 
@@ -52,6 +54,7 @@ export function mountAuthRoutes(app: FastifyInstance, signIn: SignIn, limits?: L
     if (fields === undefined) return reply.code(400).send(BAD_BODY);
     const result = await signIn.signIn(fields.email, fields.password);
     if (!result.ok) return reply.code(401).send(error(result.code, result.message));
+    noteHuman(result.account.id);
     return { token: result.token, account: result.account };
   });
 
@@ -63,6 +66,7 @@ export function mountAuthRoutes(app: FastifyInstance, signIn: SignIn, limits?: L
   app.get('/auth/me', async (request, reply) => {
     const account = await signIn.account({ authorization: request.headers.authorization });
     if (account === undefined) return reply.code(401).send(error('unauthorized', 'sign in first'));
+    noteHuman(account.id);
     return account;
   });
 }

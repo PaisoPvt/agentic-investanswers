@@ -24,6 +24,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import type { Construct } from 'constructs';
 
 import type { AiaEnvironment } from './environments.js';
@@ -36,7 +37,7 @@ const REDIS_PORT = 6379;
 /** AWS's managed prefix list com.amazonaws.global.cloudfront.origin-facing (the same id in every account and region). */
 export const CLOUDFRONT_ORIGIN_FACING = 'pl-3b927c52';
 
-export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/health'] as const;
+export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/usage*', '/health'] as const;
 
 export interface AiaStackProps extends StackProps {
   readonly environment: AiaEnvironment;
@@ -82,6 +83,15 @@ export class AiaStack extends Stack {
     const cooked = new s3.Bucket(this, 'Cooked', { ...bucketDefaults, removalPolicy: RemovalPolicy.RETAIN });
     const chart = new s3.Bucket(this, 'Chart', { ...bucketDefaults, removalPolicy: RemovalPolicy.RETAIN });
     const users = new dynamodb.Table(this, 'Users', {
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    // Usage and audit records (M4-04): one partition per user or agent, expired by `ttl` (decision record T-11).
+    const audit = new dynamodb.Table(this, 'Audit', {
       partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -150,6 +160,8 @@ export class AiaStack extends Stack {
     raw.grantRead(platformRole);
     cooked.grantRead(platformRole);
     users.grantReadWriteData(platformRole);
+    // Records are added and read back, never changed or deleted by the app.
+    audit.grant(platformRole, 'dynamodb:BatchWriteItem', 'dynamodb:PutItem', 'dynamodb:Query', 'dynamodb:DescribeTable');
     const platformTask = task('Platform', 512, 1024, platformRole, role('PlatformTaskExecutionRole', 'ECS: pull the image, write the platform logs'));
     platformTask.addContainer('platform', {
       image,
@@ -161,6 +173,7 @@ export class AiaStack extends Stack {
         AIA_PORT: String(PLATFORM_PORT),
         AIA_DYNAMODB_ENDPOINT: 'aws',
         AIA_USERS_TABLE: users.tableName,
+        AIA_AUDIT_TABLE: audit.tableName,
         // Two hops: the ALB, then CloudFront (from its public addresses).
         AIA_TRUSTED_PROXIES: '2',
       },
@@ -232,8 +245,51 @@ export class AiaStack extends Stack {
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     };
+    // The WAF in front of everything (M2-15): AWS's free managed rule sets and
+    // a coarse per-address ceiling, well above the app's own per-user limits
+    // (config/safeguards.json), so it stops floods, never a normal user.
+    const managed = (name: string, priority: number, countOnly: string[] = []): wafv2.CfnWebACL.RuleProperty => ({
+      name,
+      priority,
+      statement: {
+        managedRuleGroupStatement: {
+          vendorName: 'AWS',
+          name,
+          ...(countOnly.length === 0 ? {} : { ruleActionOverrides: countOnly.map((rule) => ({ name: rule, actionToUse: { count: {} } })) }),
+        },
+      },
+      overrideAction: { none: {} },
+      visibilityConfig: { cloudWatchMetricsEnabled: true, sampledRequestsEnabled: true, metricName: `${prefix}-${name}` },
+    });
+    const waf = new wafv2.CfnWebACL(this, 'Waf', {
+      name: `${prefix}-cdn`,
+      scope: 'CLOUDFRONT',
+      defaultAction: { allow: {} },
+      visibilityConfig: { cloudWatchMetricsEnabled: true, sampledRequestsEnabled: true, metricName: `${prefix}-cdn` },
+      customResponseBodies: {
+        rateLimited: {
+          contentType: 'APPLICATION_JSON',
+          content: JSON.stringify({ error: { code: 'rate_limited', message: 'too many requests from this address; try again in a few minutes', retryAfterSeconds: 300 } }),
+        },
+      },
+      rules: [
+        {
+          name: 'PerAddressCeiling',
+          priority: 0,
+          statement: { rateBasedStatement: { limit: environment.wafRequestsPer5Min, evaluationWindowSec: 300, aggregateKeyType: 'IP' } },
+          action: { block: { customResponse: { responseCode: 429, customResponseBodyKey: 'rateLimited', responseHeaders: [{ name: 'Retry-After', value: '300' }] } } },
+          visibilityConfig: { cloudWatchMetricsEnabled: true, sampledRequestsEnabled: true, metricName: `${prefix}-ceiling` },
+        },
+        managed('AWSManagedRulesAmazonIpReputationList', 1),
+        managed('AWSManagedRulesKnownBadInputsRuleSet', 2),
+        // Large MCP or settings bodies are counted, never cut off.
+        managed('AWSManagedRulesCommonRuleSet', 3, ['SizeRestrictions_BODY']),
+      ],
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Cdn', {
       comment: `${prefix}: chart and platform`,
+      webAclId: waf.attrArn,
       defaultRootObject: 'index.html',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       defaultBehavior: {

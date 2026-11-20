@@ -47,7 +47,7 @@ Choices made to keep progress going, each built so it can be swapped later witho
 **T-06 · Starter rate limits, and edge (WAF) rules with the AWS stack** (2026-11-13, M2-10)
 - **Why:** usage limits per customer are not agreed yet, and the web application firewall (WAF) is an AWS service that comes with staging (F-01, M2-01).
 - **Affects:** each signed-in user may make 300 chart requests a minute and each agent key 120 (bars, plan and live connections; live updates on an open connection are not counted). Per client address: 10 sign-in attempts per 15 minutes and 5 new accounts an hour. Per account: 20 agent keys created or revoked an hour. Over a limit, the request is refused with "too many requests" and when to retry. A single request returns at most 1,000 bars. If the limit counter (Redis) is down, requests are let through rather than refused.
-- **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are not in the AWS stack yet: the dev deploy (2026-11-19) runs without them, with the app's own rate limits only. They are added on dev by M2-15, before staging (M2-16).
+- **Swap later:** the numbers are configuration (`config/safeguards.json`), changed without code. The WAF rules (basic managed rule sets and a per-address request ceiling in front of the platform) are in the AWS stack since M2-15 (2026-11-19): AWS's managed rule sets and a ceiling of 3,000 requests per 5 minutes per address (`wafRequestsPer5Min` in `infra/src/environments.ts`), answered with "too many requests" like the app's own limits. The ceiling is a starter number too.
 
 
 **T-08 · Every plan can use indicators** (2026-11-14, M3-02)
@@ -66,7 +66,12 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Also:** a watchlist imported from TradingView (UI-03) is kept the same way. Imported TradingView chart data is only shown for the open page and never stored, on the server or in the browser.
 - **Swap later:** saving goes through one small store in the chart app; keeping drawings with the account means replacing that store with one that calls the server (user preferences). The panel and the chart do not change.
 
-**T-11 · The freshness badge works from what the browser receives** (2026-11-19, UI-02)
+**T-11 · Usage and audit records are kept 400 days, with client addresses** (2026-11-20, M4-04)
+- **Why:** every human and agent request must leave a record that can be read back per user and per agent. How long to keep them, and whether to keep the address a request came from, are the client's to confirm (privacy policy, data protection).
+- **Affects:** each request to the platform is recorded with who made it, what was asked (route, instrument, timeframe, indicator or agent tool), the outcome and the client's internet address; never passwords, tokens or request contents. Records expire after 400 days. A user can read their own records and their agent keys' records; operators can read any account's with `pnpm usage`.
+- **Swap later:** the retention period is one setting, and dropping the address is a one-line change in how records are built; records already kept expire on their own schedule.
+
+**T-12 · The freshness badge works from what the browser receives** (2026-11-19, UI-02; numbered T-12 when merged beside M4-04's T-11)
 - **Why:** the client asked for a sign of how fresh the data is; the freshness checker that measures each step on the server (M2-07) is not built yet.
 - **Affects:** the chart shows Live, Delayed (no update for 90 seconds, or the newest bar ended over 2 minutes ago), Stale (no update for 5 minutes) or Offline. It cannot tell a quiet market from a slow feed, and it does not know market hours yet (only crypto is served, T-04).
 - **Swap later:** the badge reads one small module with its limits in one place; M2-07's measured numbers, and market hours for stocks, can feed it without changing the badge.

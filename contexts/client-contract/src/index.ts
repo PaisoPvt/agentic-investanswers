@@ -36,3 +36,4 @@ export type {
 } from './domain/indicator-outputs.js';
 export { INDICATOR_OUTPUT_DEFAULT_LIMIT, INDICATOR_OUTPUT_MAX_LIMIT } from './domain/indicator-outputs.js';
 export type { AccountInfo, SessionResponse } from './domain/auth.js';
+export type { UsageRecordView, UsageResponse } from './domain/usage.js';
