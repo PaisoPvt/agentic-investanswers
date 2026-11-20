@@ -41,7 +41,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-12 | Themes (light and dark) and mobile layout | todo | #29 |  |
 | M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | todo | #30 |  |
 | M2-14 | Chart sign-in screens | done | #108 | #109 |
-| M2-15 | Basic WAF rules in front of CloudFront | todo | #113 |  |
+| M2-15 | Basic WAF rules in front of CloudFront | in review (deploy check after merge) | #113 | #118 |
 | M2-16 | Deploy the stack to the staging account | blocked | #114 |  |
 | M3-01 | IndicatorDefinition interface | done | #31 | #85 |
 | M3-02 | Settings schema → settings dialog (generated from the declared inputs, with range limits) | done | #32 | #86, #105 |
