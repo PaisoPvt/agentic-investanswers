@@ -226,6 +226,27 @@ describe('CloudFront', () => {
   });
 });
 
+describe('audit records (M4-04)', () => {
+  it('keeps them in their own retained table, expired by ttl', () => {
+    const audit = resources[logicalId('Audit', 'AWS::DynamoDB::Table')];
+    expect(audit?.DeletionPolicy).toBe('Retain');
+    expect(audit?.Properties['TimeToLiveSpecification']).toEqual({ AttributeName: 'ttl', Enabled: true });
+    expect(audit?.Properties['BillingMode']).toBe('PAY_PER_REQUEST');
+    expect(environmentOf('platform')['AIA_AUDIT_TABLE']).toEqual({ Ref: logicalId('Audit', 'AWS::DynamoDB::Table') });
+  });
+
+  it('lets the platform add and read records, never change or delete them, and hydration not at all', () => {
+    const audit = logicalId('Audit', 'AWS::DynamoDB::Table');
+    const onAudit = statements('PlatformTaskRole').filter((s) => mentions(s, audit));
+    expect(onAudit.flatMap(actions).sort()).toEqual(['dynamodb:BatchWriteItem', 'dynamodb:DescribeTable', 'dynamodb:PutItem', 'dynamodb:Query']);
+    expect(statements('HydrationTaskRole').some((s) => mentions(s, audit))).toBe(false);
+  });
+
+  it('routes GET /usage through CloudFront to the platform', () => {
+    expect(API_PATHS).toContain('/usage*');
+  });
+});
+
 describe('WAF (M2-15)', () => {
   type Rule = {
     Name: string;

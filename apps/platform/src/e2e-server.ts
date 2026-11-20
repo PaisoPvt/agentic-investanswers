@@ -24,6 +24,7 @@
 //   tsx apps/platform/src/e2e-server.ts --sign-in
 
 import { accessFromEnv, parsePlanBook } from '@aia/access';
+import { AuditLog, MemoryUsageRecordStore } from '@aia/audit';
 import type { LiveBarUpdate } from '@aia/data';
 import { BTCUSD, ETHUSD, MemoryDataLayer, SimulatedLiveFeed } from '@aia/data';
 import { IndicatorEngine, IndicatorRegistry, MemoryIndicatorOutputCache } from '@aia/indicators';
@@ -193,6 +194,8 @@ export async function startE2EServer(port: number, options: { readonly signIn?: 
     indicators,
     indicatorRunner: { drawn: (r) => engine.drawn(r), forming: (i, t) => indicatorBars.forming(i, t) },
     now: () => barTime(E2E_NOW),
+    // Usage and audit records in memory (M4-04), so every route runs as on AWS.
+    audit: new AuditLog({ store: new MemoryUsageRecordStore() }),
     logger: false,
   });
 
