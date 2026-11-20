@@ -9,8 +9,12 @@
 //   asked again and an answer to an older question is dropped.
 // - Outputs are asked again when a new bar appears on the chart (the previous
 //   one closed), and every minute for the forming bar's point.
+// - As many points are asked for as the chart holds bars (M2-06: scrolling
+//   back adds older ones), at least the route's default and at most its cap.
+//   Older than the cap, the line stops.
 
 import type { IndicatorOutputsRequest, IndicatorOutputsResponse, IndicatorSettings } from '@aia/client-contract';
+import { INDICATOR_OUTPUT_DEFAULT_LIMIT, INDICATOR_OUTPUT_MAX_LIMIT } from '@aia/client-contract';
 import type { Chart } from 'klinecharts';
 
 import type { OverlayData } from './indicator-overlay.js';
@@ -48,6 +52,8 @@ interface Entry {
   shown: ShownIndicator;
   /** Bumped on every request, so only the newest answer is drawn. */
   asked: number;
+  /** How many points the last request asked for. */
+  limit: number;
 }
 
 const defaultEvery = (ms: number, run: () => void) => {
@@ -97,7 +103,7 @@ export class IndicatorLayer {
           true,
         );
         if (chartId === null) continue;
-        this.entries.set(shown.id, { chartId, shown, asked: 0 });
+        this.entries.set(shown.id, { chartId, shown, asked: 0, limit: 0 });
         void this.load(shown.id);
       } else if (moved || JSON.stringify(entry.shown.settings) !== JSON.stringify(shown.settings)) {
         entry.shown = shown;
@@ -112,6 +118,12 @@ export class IndicatorLayer {
   /** Asks the server again for every indicator shown. */
   refreshAll(): void {
     for (const id of this.entries.keys()) void this.load(id);
+  }
+
+  /** The chart holds more bars (older ones were added): asks again where more points would be drawn. */
+  moreBars(): void {
+    const limit = this.limit();
+    for (const [id, entry] of this.entries) if (entry.limit < limit) void this.load(id);
   }
 
   dispose(): void {
@@ -133,8 +145,10 @@ export class IndicatorLayer {
     const target = this.target;
     if (entry === undefined || target === undefined) return;
     const asked = ++entry.asked;
+    const limit = this.limit();
+    entry.limit = limit;
     try {
-      const response = await this.deps.fetch(id, { instrument: target.instrument, timeframe: target.timeframe, settings: entry.shown.settings });
+      const response = await this.deps.fetch(id, { instrument: target.instrument, timeframe: target.timeframe, settings: entry.shown.settings, ...(limit === INDICATOR_OUTPUT_DEFAULT_LIMIT ? {} : { limit }) });
       if (this.entries.get(id) !== entry || entry.asked !== asked) return;
       this.draw(entry, overlayData(response));
       this.deps.onError?.(id, undefined);
@@ -142,6 +156,12 @@ export class IndicatorLayer {
       if (this.entries.get(id) !== entry || entry.asked !== asked) return;
       this.deps.onError?.(id, error instanceof Error ? error.message : 'could not draw this indicator');
     }
+  }
+
+  /** Points to ask for: one per bar on the chart, within the route's default and cap. */
+  private limit(): number {
+    const bars = this.deps.chart()?.getDataList().length ?? 0;
+    return Math.min(INDICATOR_OUTPUT_MAX_LIMIT, Math.max(INDICATOR_OUTPUT_DEFAULT_LIMIT, bars));
   }
 
   /** Draws these points (none: clears the indicator until the next answer). */

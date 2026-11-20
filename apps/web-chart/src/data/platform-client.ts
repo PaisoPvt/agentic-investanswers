@@ -53,8 +53,8 @@ export class PlatformClient {
   constructor(private readonly options: PlatformClientOptions) {}
 
   /** The newest page of bars, or the page before `before`. */
-  history(instrument: string, tf: Timeframe, limit = HISTORY_DEFAULT_LIMIT): Promise<HistoryResponse> {
-    const query = new URLSearchParams({ instrument, tf, limit: String(limit) });
+  history(instrument: string, tf: Timeframe, before?: number, limit = HISTORY_DEFAULT_LIMIT): Promise<HistoryResponse> {
+    const query = new URLSearchParams({ instrument, tf, limit: String(limit), ...(before === undefined ? {} : { before: String(before) }) });
     return this.get<HistoryResponse>(`/bars?${query.toString()}`);
   }
 
