@@ -82,6 +82,8 @@ To start a task, ask Claude: "Start task M1-06". It copies the template into `ta
 | ID | Task | → | Done when |
 |---|---|---|---|
 | UI-01 | **Drawing tools panel** (client, 2026-11-19): a panel left of the chart with trend line, ray, extended, horizontal and vertical lines, price line, parallel channel, Fibonacci retracement, rectangle, circle, triangle and text note; magnet, lock all, hide all, delete all; Delete removes the selected drawing, Esc cancels. Saved in the browser per account and instrument (decision record T-10) | M2-05 | Playwright test: a trend line is placed, survives a reload and a timeframe change, belongs to its instrument, and is deleted; notes, lock, hide and delete all tested |
+| UI-02 | **Data freshness badge** (client, 2026-11-19): Live / Delayed / Stale / Offline in the status line, from the last update the chart received and how far the newest bar is behind; details on hover. M2-07's measurements can feed it later | M2-05 | Unit tests for the levels; Playwright test with the browser clock: Live, then Delayed |
+| UI-03 | **Import from TradingView** (client, 2026-11-19; Sham chose chart data and watchlists first): chart data CSV drawn over our bars (close and plot columns) with a match report; a watchlist .txt opens beside the chart. Browser only: imports never reach stored bars (rule 3); the watchlist is saved like drawings (T-10). TradingView cannot export drawings, layouts or Pine scripts | M2-05 | Unit tests for the parsers and the comparison; Playwright tests for chart data, refusals and the watchlist |
 
 **Total:** 6 + 11 + 13 + 10 + 6 = 46 tasks over 4 build weeks, about 11 per week across 3 lanes.
 

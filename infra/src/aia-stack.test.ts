@@ -226,6 +226,13 @@ describe('CloudFront', () => {
   });
 });
 
+describe('live minute latency (M1-11)', () => {
+  it('has hydration write its latency as CloudWatch metrics, and only hydration', () => {
+    expect(environmentOf('hydration')).toMatchObject({ AIA_METRICS: 'emf', AIA_ENV: 'dev' });
+    expect(environmentOf('platform')['AIA_METRICS']).toBeUndefined();
+  });
+});
+
 describe('audit records (M4-04)', () => {
   it('keeps them in their own retained table, expired by ttl', () => {
     const audit = resources[logicalId('Audit', 'AWS::DynamoDB::Table')];

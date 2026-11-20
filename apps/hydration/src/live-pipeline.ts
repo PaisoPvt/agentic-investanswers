@@ -55,6 +55,8 @@ export interface LivePipelineDeps {
   readonly log: (line: string) => void;
   /** Epoch milliseconds. */
   readonly nowMs: () => number;
+  /** Told when a stored minute's bars are cooked, cached and announced (M1-11's latency probe). */
+  readonly onServed?: (symbol: string, bar: Bar) => void;
   /**
    * How many instruments compact at once. Default 4: at midnight every
    * instrument has a day to write, and compaction must not compete with the
@@ -154,7 +156,10 @@ export class LivePipeline {
     // The stored bars go out only once the cache has them.
     const cachedThenAnnounce = (rebuilt: Map<Timeframe, Bar[]>) =>
       this.updateCache(symbol, bar, rebuilt).then(
-        () => this.announce(forming?.cooked(bar, rebuilt) ?? []),
+        () => {
+          this.announce(forming?.cooked(bar, rebuilt) ?? []);
+          this.deps.onServed?.(symbol, bar);
+        },
         (error: unknown) => {
           this.resync(`${symbol} cache update failed`);
           throw error;

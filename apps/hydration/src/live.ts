@@ -23,6 +23,11 @@
 // one writer. Run every shard i/n with the same n, and restart them together
 // when n changes.
 //
+// Latency (M1-11): each minute is timed from its close to stored in raw and
+// to served (cooked, cached, announced); every AIA_LATENCY_EVERY_MIN minutes
+// (15) one line per instrument gives p50 and p95. With AIA_METRICS=emf (set on
+// AWS), each minute is also a CloudWatch metric (namespace AIA/<AIA_ENV>).
+//
 // Runs until stopped (Ctrl-C); minutes not yet closed are not written. Exits 2
 // on a setup error, including Redis being unreachable at start.
 
@@ -50,6 +55,7 @@ import { formatScaled, nyseCalendar, rawPriceScale, rawVolumeScale } from '@aia/
 
 import { connectCache, connectLiveBus } from './cache.js';
 import { feedAdapters } from './feeds.js';
+import { LatencyReporter } from './latency.js';
 import { LivePipeline } from './live-pipeline.js';
 import { localStores } from './stores.js';
 
@@ -149,6 +155,15 @@ async function main(): Promise<void> {
     usage(`Redis is unreachable (${String(error)}); live updates for charts go through it. Run: docker compose up -d`);
   }
   const liveBus = bus;
+  const log = (line: string) => console.log(`${new Date().toISOString().slice(11, 19)} ${line}`);
+  const latency = new LatencyReporter({
+    nowMs: () => Date.now(),
+    // EMF lines must be bare JSON for CloudWatch to read them.
+    log: (line) => (line.startsWith('{') ? console.log(line) : log(line)),
+    ...(process.env['AIA_METRICS'] === 'emf' ? { emfNamespace: `AIA/${process.env['AIA_ENV'] ?? 'local'}` } : {}),
+  });
+  const everyMin = Number(process.env['AIA_LATENCY_EVERY_MIN'] ?? 15);
+  const reportLatency = setInterval(() => latency.report(), (Number.isFinite(everyMin) && everyMin > 0 ? everyMin : 15) * 60_000);
   const pipeline = new LivePipeline({
     instruments,
     raw: stores.raw,
@@ -161,8 +176,9 @@ async function main(): Promise<void> {
     bus: liveBus,
     publisher: `live-${shard.index}of${shard.count}-${randomUUID()}`,
     calendar: nyseCalendar(),
-    log: (line) => console.log(`${new Date().toISOString().slice(11, 19)} ${line}`),
+    log,
     nowMs: () => Date.now(),
+    onServed: (symbol, bar) => latency.reached(symbol, 'served', bar.time),
   });
 
   const record = values.record;
@@ -195,6 +211,7 @@ async function main(): Promise<void> {
       case 'minute': {
         const instrument = bySymbol.get(event.symbol);
         if (instrument === undefined) return;
+        latency.reached(event.symbol, 'stored', event.bar.time);
         console.log(`${stamp} ${event.symbol} ${hhmm(event.bar.time)} ${describe(instrument, event.bar)}`);
         void pipeline.minute(provider, event.symbol, event.bar);
         return;
@@ -240,6 +257,8 @@ async function main(): Promise<void> {
 
   const shutdown = (): void => {
     clearInterval(checkPlan);
+    clearInterval(reportLatency);
+    latency.report();
     console.log('Stopping; minutes not yet closed are not written.');
     void Promise.all(running.map(({ stream }) => stream.stop()))
       .then(() => pipeline.settled())

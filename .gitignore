@@ -26,3 +26,6 @@ cdk.out/
 # Playwright output (M2-05)
 test-results/
 playwright-report/
+
+# Freshness reports (M2-07), written by pnpm freshness
+reports/
