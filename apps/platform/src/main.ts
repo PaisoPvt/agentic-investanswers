@@ -10,6 +10,8 @@
 //   app's own sign-in (M2-08) at /auth/*, with accounts and sessions in
 //   DynamoDB: AIA_DYNAMODB_ENDPOINT (the local one, http://127.0.0.1:8000;
 //   "aws" for AWS itself), AIA_USERS_TABLE (aia-users).
+//   AIA_AUDIT_TABLE (aia-audit): the usage and audit records (M4-04), in the
+//   same DynamoDB; kept in memory under AIA_DEV_AUTH=1.
 //   AIA_INDICATORS: the indicator modules to load (M3-05, load-indicators.ts),
 //   for example ../agentic-investanswers-indicators/src/index.ts; none without it.
 //
@@ -26,6 +28,7 @@ import {
   ensureUsersTable,
   loadRateLimits,
 } from '@aia/access';
+import { AuditLog, DynamoUsageRecordStore, MemoryUsageRecordStore, ensureAuditTable } from '@aia/audit';
 import { openLocalDataLayer } from '@aia/data';
 import { IndicatorEngine, RedisIndicatorOutputCache } from '@aia/indicators';
 import { HistoryQuery, LiveGateway } from '@aia/serving';
@@ -48,6 +51,19 @@ async function usersStores(env: NodeJS.ProcessEnv) {
     sessions: new DynamoSessionStore(client, table),
     agentKeys: new DynamoAgentKeyStore(client, table),
   };
+}
+
+/** Usage and audit records (M4-04): DynamoDB beside the users table; in memory with developer access. */
+async function auditLog(env: NodeJS.ProcessEnv): Promise<AuditLog> {
+  const onError = (failure: unknown, dropped: number) =>
+    console.error(`audit: ${failure instanceof Error ? failure.message : String(failure)} (${dropped > 0 ? `${dropped} records dropped` : 'retrying with the next batch'})`);
+  if (env['AIA_DEV_AUTH'] === '1') return new AuditLog({ store: new MemoryUsageRecordStore(), onError });
+  const table = env['AIA_AUDIT_TABLE'] ?? 'aia-audit';
+  const endpoint = env['AIA_DYNAMODB_ENDPOINT'] ?? 'http://127.0.0.1:8000';
+  const local = endpoint !== 'aws';
+  const client = dynamoClient(local ? { endpoint, table, credentials: { accessKeyId: 'local', secretAccessKey: 'local' } } : { endpoint, table });
+  if (local) await ensureAuditTable(client, table);
+  return new AuditLog({ store: new DynamoUsageRecordStore(client, table), onError });
 }
 
 function trustedProxies(env: NodeJS.ProcessEnv): { trustedProxies?: string | number } {
@@ -101,7 +117,8 @@ async function main(): Promise<void> {
     drawn: (request) => engine.drawn(request),
     forming: (instrument, timeframe) => indicatorBars.forming(instrument, timeframe),
   };
-  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, indicatorRunner, ...trustedProxies(env), now, logger: true });
+  const audit = await auditLog(env);
+  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, indicatorRunner, audit, ...trustedProxies(env), now, logger: true });
 
   const port = Number(env['AIA_PORT'] ?? 8080);
   const host = env['AIA_HOST'] ?? '127.0.0.1';
@@ -114,6 +131,7 @@ async function main(): Promise<void> {
       .then(() => data.close())
       .then(() => counter.close())
       .then(() => indicatorCache.close())
+      .then(() => audit.close())
       .then(() => process.exit(0));
   };
   process.on('SIGINT', shutdown);
