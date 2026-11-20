@@ -60,7 +60,7 @@ class MemoryHours implements LiveHourStorePort {
   }
 }
 
-async function setup(prestored: readonly Bar[] = []) {
+async function setup(prestored: readonly Bar[] = [], onServed?: (symbol: string, bar: Bar) => void) {
   const raw = new MemoryLiveStore();
   for (const b of prestored) await raw.putLiveMinute({ provider: 'coinbase', symbol: 'BTCUSD', date: zonedDateKey(b.time, 'UTC') }, b);
   const hours = new MemoryHours(raw);
@@ -89,6 +89,7 @@ async function setup(prestored: readonly Bar[] = []) {
     publisher: 'test',
     log: (line) => logs.push(line),
     nowMs: () => 0,
+    ...(onServed === undefined ? {} : { onServed }),
   });
   const live = async (t: number) => {
     const bar = minute(t);
@@ -156,3 +157,19 @@ describe('LivePipeline storage work (M1-15)', () => {
     expect(hours.files.get('BTCUSD/2026-11-28/9')).toHaveLength(60);
   });
 });
+
+describe('LivePipeline latency hook (M1-11)', () => {
+  it('tells when each stored minute is served: after its bars are announced, once per minute', async () => {
+    const served: [string, number, number][] = [];
+    let announced: LiveBatch[] = [];
+    const { live, batches } = await setup([], (symbol, bar) => served.push([symbol, bar.time, announced.length]));
+    announced = batches;
+    await live(D28 + 3_600);
+    await live(D28 + 3_660);
+    expect(served).toEqual([
+      ['BTCUSD', D28 + 3_600, 1],
+      ['BTCUSD', D28 + 3_660, 2],
+    ]);
+  });
+});
+
