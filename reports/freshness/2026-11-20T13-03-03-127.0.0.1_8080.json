@@ -1,0 +1,152 @@
+{
+  "url": "http://127.0.0.1:8080",
+  "clockOffsetMs": 369,
+  "thresholds": {
+    "storage": 5,
+    "cache": 5,
+    "chart": 5
+  },
+  "rows": [
+    {
+      "symbol": "BTCUSD",
+      "step": "storage",
+      "count": 2,
+      "missing": 0,
+      "p50": 3161,
+      "p95": 3283,
+      "max": 3283,
+      "thresholdMs": 5000,
+      "pass": true
+    },
+    {
+      "symbol": "BTCUSD",
+      "step": "cache",
+      "count": 2,
+      "missing": 0,
+      "p50": 2300,
+      "p95": 2440,
+      "max": 2440,
+      "thresholdMs": 5000,
+      "pass": true
+    },
+    {
+      "symbol": "BTCUSD",
+      "step": "chart",
+      "count": 2,
+      "missing": 0,
+      "p50": 2312,
+      "p95": 2317,
+      "max": 2317,
+      "thresholdMs": 5000,
+      "pass": true
+    },
+    {
+      "symbol": "ETHUSD",
+      "step": "storage",
+      "count": 2,
+      "missing": 0,
+      "p50": 3163,
+      "p95": 3277,
+      "max": 3277,
+      "thresholdMs": 5000,
+      "pass": true
+    },
+    {
+      "symbol": "ETHUSD",
+      "step": "cache",
+      "count": 2,
+      "missing": 0,
+      "p50": 2299,
+      "p95": 2439,
+      "max": 2439,
+      "thresholdMs": 5000,
+      "pass": true
+    },
+    {
+      "symbol": "ETHUSD",
+      "step": "chart",
+      "count": 2,
+      "missing": 0,
+      "p50": 2312,
+      "p95": 2317,
+      "max": 2317,
+      "thresholdMs": 5000,
+      "pass": true
+    }
+  ],
+  "pass": true,
+  "observations": [
+    {
+      "symbol": "BTCUSD",
+      "minute": 1795179660,
+      "step": "cache",
+      "ms": 2300
+    },
+    {
+      "symbol": "BTCUSD",
+      "minute": 1795179660,
+      "step": "storage",
+      "ms": 3283
+    },
+    {
+      "symbol": "BTCUSD",
+      "minute": 1795179720,
+      "step": "cache",
+      "ms": 2440
+    },
+    {
+      "symbol": "BTCUSD",
+      "minute": 1795179720,
+      "step": "storage",
+      "ms": 3161
+    },
+    {
+      "symbol": "ETHUSD",
+      "minute": 1795179660,
+      "step": "cache",
+      "ms": 2299
+    },
+    {
+      "symbol": "ETHUSD",
+      "minute": 1795179660,
+      "step": "storage",
+      "ms": 3277
+    },
+    {
+      "symbol": "ETHUSD",
+      "minute": 1795179720,
+      "step": "cache",
+      "ms": 2439
+    },
+    {
+      "symbol": "ETHUSD",
+      "minute": 1795179720,
+      "step": "storage",
+      "ms": 3163
+    },
+    {
+      "symbol": "BTCUSD",
+      "minute": 1795179660,
+      "step": "chart",
+      "ms": 2312
+    },
+    {
+      "symbol": "BTCUSD",
+      "minute": 1795179720,
+      "step": "chart",
+      "ms": 2317
+    },
+    {
+      "symbol": "ETHUSD",
+      "minute": 1795179660,
+      "step": "chart",
+      "ms": 2312
+    },
+    {
+      "symbol": "ETHUSD",
+      "minute": 1795179720,
+      "step": "chart",
+      "ms": 2317
+    }
+  ]
+}

@@ -24,6 +24,7 @@
 import compress from '@fastify/compress';
 import websocket from '@fastify/websocket';
 import type { Access, Principal } from '@aia/access';
+import type { AuditLog } from '@aia/audit';
 import type { DataAccess } from '@aia/data';
 import type { HistoryQuery, LiveGateway } from '@aia/serving';
 import { LIVE_MAX_CLIENT_MESSAGE } from '@aia/serving';
@@ -32,6 +33,8 @@ import Fastify from 'fastify';
 import type { FastifyInstance, FastifyLoggerOptions, FastifyRequest } from 'fastify';
 
 import { mountAgentKeyRoutes } from './agent-key-routes.js';
+import type { AuditHooks } from './audit-hooks.js';
+import { auditedPrincipals, mountAudit } from './audit-hooks.js';
 import { mountAuthRoutes } from './auth-routes.js';
 import type { IndicatorRunner } from './indicator-outputs.js';
 import type { IndicatorCatalog } from './indicator-routes.js';
@@ -40,6 +43,7 @@ import { mountMcpRoute } from './mcp-route.js';
 import type { Limits } from './rate-limit.js';
 import { refusedForRate } from './rate-limit.js';
 import { ReadQueries } from './read-queries.js';
+import { mountUsageRoute } from './usage-route.js';
 
 export interface ServerDeps {
   readonly history: Pick<HistoryQuery, 'parse' | 'run'>;
@@ -58,6 +62,10 @@ export interface ServerDeps {
   readonly indicatorRunner?: IndicatorRunner;
   /** Per-user rate limits (M2-10); none when left out. */
   readonly limits?: Limits;
+  /** Usage and audit records (M4-04): one per request, and GET /usage to read them back. None when left out. */
+  readonly audit?: Pick<AuditLog, 'record' | 'page'>;
+  /** Milliseconds since the epoch, for the records; the clock by default. */
+  readonly nowMs?: () => number;
   /**
    * The proxies in front of the platform: addresses or CIDR ranges, comma
    * separated, or a number of hops (on AWS 2: the ALB, then CloudFront, whose
@@ -119,15 +127,19 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
 
   app.get('/health', () => ({ ok: true }));
 
+  // Every request leaves a record; the routes' resolver notes who made it.
+  const hooks: AuditHooks | undefined = deps.audit === undefined ? undefined : mountAudit(app, deps.audit, deps.nowMs ?? Date.now);
+  const principals = deps.audit === undefined ? deps.access.principals : auditedPrincipals(deps.access.principals);
+
   const limits = deps.limits;
   const indicators = deps.indicators !== undefined && deps.indicatorRunner !== undefined ? { catalog: deps.indicators, runner: deps.indicatorRunner } : undefined;
   const reads = new ReadQueries({ history: deps.history, policy: deps.access.policy, now: deps.now, catalog: deps.catalog, indicators });
   if (deps.access.signIn !== undefined) mountAuthRoutes(app, deps.access.signIn, limits);
-  if (deps.access.agentKeys !== undefined) mountAgentKeyRoutes(app, deps.access.agentKeys, deps.access.principals, limits);
+  if (deps.access.agentKeys !== undefined) mountAgentKeyRoutes(app, deps.access.agentKeys, principals, limits);
 
   app.get('/bars', async (request, reply) => {
     // Every request carries a principal (CLAUDE.md rule 4), checked first.
-    const principal = await deps.access.principals.resolve({ authorization: request.headers.authorization });
+    const principal = await principals.resolve({ authorization: request.headers.authorization });
     if (principal === undefined) return reply.code(401).send(error('unauthorized', 'sign in to read bars'));
     if (limits !== undefined && (await refusedForRate(reply, await limits.checkReads(principal)))) return reply;
 
@@ -136,7 +148,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   app.get('/plan', async (request, reply) => {
-    const principal = await deps.access.principals.resolve({ authorization: request.headers.authorization });
+    const principal = await principals.resolve({ authorization: request.headers.authorization });
     if (principal === undefined) return reply.code(401).send(error('unauthorized', 'sign in to see your plan'));
     if (limits !== undefined && (await refusedForRate(reply, await limits.checkReads(principal)))) return reply;
     const outcome = await reads.plan(principal);
@@ -144,20 +156,21 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   app.get('/instruments', async (request, reply) => {
-    const principal = await deps.access.principals.resolve({ authorization: request.headers.authorization });
+    const principal = await principals.resolve({ authorization: request.headers.authorization });
     if (principal === undefined) return reply.code(401).send(error('unauthorized', 'sign in to list instruments'));
     if (limits !== undefined && (await refusedForRate(reply, await limits.checkReads(principal)))) return reply;
     const outcome = await reads.instrumentsForChart(principal);
     return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
   });
 
-  mountMcpRoute(app, reads, deps.access.principals, limits);
-  if (deps.indicators !== undefined) mountIndicatorRoutes(app, deps.indicators, deps.access.principals, limits);
-  if (indicators !== undefined) mountOutputsRoute(app, reads, deps.access.principals, limits);
+  mountMcpRoute(app, reads, principals, limits);
+  if (deps.indicators !== undefined) mountIndicatorRoutes(app, deps.indicators, principals, limits);
+  if (indicators !== undefined) mountOutputsRoute(app, reads, principals, limits);
+  if (deps.audit !== undefined) mountUsageRoute(app, deps.audit, principals, deps.access.agentKeys, limits);
 
   const live = deps.live;
   if (live !== undefined) {
-    const principals = new WeakMap<FastifyRequest, Principal>();
+    const connected = new WeakMap<FastifyRequest, Principal>();
     const pingMs = deps.pingMs ?? 30_000;
     app.get(
       '/live',
@@ -165,16 +178,16 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
         websocket: true,
         // Every connection carries a principal (CLAUDE.md rule 4), checked before the upgrade.
         preValidation: async (request, reply) => {
-          const principal = await deps.access.principals.resolve(credentials(request));
+          const principal = await principals.resolve(credentials(request));
           if (principal === undefined) return reply.code(401).send(error('unauthorized', 'sign in to follow live bars'));
           // A connection counts as one read; updates on it do not.
           if (limits !== undefined && (await refusedForRate(reply, await limits.checkReads(principal)))) return reply;
-          principals.set(request, principal);
+          connected.set(request, principal);
           return undefined;
         },
       },
       (socket, request) => {
-        const principal = principals.get(request) as Principal;
+        const principal = connected.get(request) as Principal;
         const session = live.open(
           {
             send: (text) => socket.send(text),
@@ -208,6 +221,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
         socket.on('close', () => {
           clearInterval(ping);
           session.close();
+          hooks?.liveClosed(request, principal);
         });
       },
     );

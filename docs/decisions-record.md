@@ -65,6 +65,11 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Affects:** a trader's drawings (lines, Fibonacci, shapes, notes) are kept in that browser, per account and instrument. They survive a reload, but do not follow the trader to another browser or device, and clearing the browser's site data removes them. Drawings never reach the server or agents.
 - **Swap later:** saving goes through one small store in the chart app; keeping drawings with the account means replacing that store with one that calls the server (user preferences). The panel and the chart do not change.
 
+**T-11 · Usage and audit records are kept 400 days, with client addresses** (2026-11-20, M4-04)
+- **Why:** every human and agent request must leave a record that can be read back per user and per agent. How long to keep them, and whether to keep the address a request came from, are the client's to confirm (privacy policy, data protection).
+- **Affects:** each request to the platform is recorded with who made it, what was asked (route, instrument, timeframe, indicator or agent tool), the outcome and the client's internet address; never passwords, tokens or request contents. Records expire after 400 days. A user can read their own records and their agent keys' records; operators can read any account's with `pnpm usage`.
+- **Swap later:** the retention period is one setting, and dropping the address is a one-line change in how records are built; records already kept expire on their own schedule.
+
 ## Postponed decisions
 Open questions, what we assume meanwhile, and the latest date the answer is useful.
 
