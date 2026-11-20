@@ -52,7 +52,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M3-07a | ATR port, slice 1: plotted values (agentic-investanswers-indicators) | Phase 1 | #37 |  |
 | M3-07b | ATR port, slice 2: signals | Phase 1 | #38 |  |
 | M3-07c | ATR port, slice 3: backtest | Phase 1 | #39 |  |
-| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | todo | #40 |  |
+| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | in review | #40 |  |
 | M4-01 | Agent identity | done | #41 | #97 |
 | M4-02 | Read-only MCP tools | done | #42 | #101 |
 | M4-03 | Read-only agent API endpoints | todo | #43 |  |

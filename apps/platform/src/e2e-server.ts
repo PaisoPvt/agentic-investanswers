@@ -17,7 +17,7 @@
 // - Access: local developer mode, everything allowed; or, with --sign-in
 //   (M2-14), the app's own sign-in on in-memory accounts, every account on a
 //   plan that includes everything.
-// - Indicators: the test-only settingsDemo (never a real indicator, rule 5),
+// - Indicators: the test-only settingsDemo and leakCanary (never real indicators, rule 5),
 //   run by the real engine with a memory cache.
 //
 //   tsx apps/platform/src/e2e-server.ts             (AIA_PORT, default 8181)
@@ -35,6 +35,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { IndicatorBars } from './indicator-bars.js';
 import { buildServer } from './server.js';
+import { leakCanary } from './leak-canary-indicator.js';
 import { settingsDemo } from './settings-demo-indicator.js';
 
 /** 2026-11-10 12:00 UTC: a 4h boundary, so every timeframe's bar starts here. */
@@ -182,7 +183,8 @@ export async function startE2EServer(port: number, options: { readonly signIn?: 
   const announcer = data.announcer('e2e');
   const feeds = new Map(INSTRUMENTS.map((i) => [i.symbol, new E2ELive(i)]));
 
-  const indicators = new IndicatorRegistry([settingsDemo]);
+  // The leak canary (M3-08): internals the leak test looks for everywhere outside the engine.
+  const indicators = new IndicatorRegistry([settingsDemo, leakCanary]);
   const indicatorBars = new IndicatorBars({ data, now: () => barTime(E2E_NOW) });
   const engine = new IndicatorEngine({ registry: indicators, bars: indicatorBars, cache: new MemoryIndicatorOutputCache() });
 
