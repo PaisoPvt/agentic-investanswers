@@ -225,3 +225,11 @@ describe('CloudFront', () => {
     expect([...routes].filter((route) => !covered(route))).toEqual([]);
   });
 });
+
+describe('live minute latency (M1-11)', () => {
+  it('has hydration write its latency as CloudWatch metrics, and only hydration', () => {
+    expect(environmentOf('hydration')).toMatchObject({ AIA_METRICS: 'emf', AIA_ENV: 'dev' });
+    expect(environmentOf('platform')['AIA_METRICS']).toBeUndefined();
+  });
+});
+

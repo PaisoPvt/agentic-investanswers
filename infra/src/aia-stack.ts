@@ -190,7 +190,8 @@ export class AiaStack extends Stack {
       image,
       command: ['tsx', 'apps/hydration/src/live.ts'],
       logging: ecs.LogDrivers.awsLogs({ logGroup: logGroup('Hydration'), streamPrefix: 'hydration' }),
-      environment: shared,
+      // Live minute latency as CloudWatch metrics from the log lines (M1-11), namespace AIA/<env>.
+      environment: { ...shared, AIA_METRICS: 'emf', AIA_ENV: environment.name },
       secrets: { MASSIVE_API_KEY: ecs.Secret.fromSecretsManager(massiveKey) },
     });
     const hydration = new ecs.FargateService(this, 'HydrationService', {
