@@ -21,7 +21,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-08 | Cook D/W/M and stock session-aware rollups (regular hours, holidays) | todo | #14 |  |
 | M1-09 | Gap detector + auto re-fetch (completeness check), per market hours | done | #15 | #73 |
 | M1-10 | Rebuild check | done | #16 | #69 |
-| M1-11 | Latency probe: minute close → raw stored → cooked, per symbol | in review | #17 |  |
+| M1-11 | Latency probe: minute close → raw stored → cooked, per symbol | done | #17 | #123 |
 | M1-12 | Extend the market calendar to 1999-2027 | done | #53 | #70 |
 | M1-13 | Commit parity fixtures, turn on the CI parity job | blocked | #58 |  |
 | M1-14 | Split parity: exact build parity, reported source fidelity | done | #67 | #68 |
@@ -32,8 +32,8 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-03 | History API | done | #20 | #79 |
 | M2-04 | Live gateway | done | #21 | #80 |
 | M2-05 | Chart app | done | #22 | #103 |
-| M2-06 | Scroll-back paging, smooth loading of older history | in review | #23 | #115 |
-| M2-07 | Freshness checker | in review | #24 | #124 |
+| M2-06 | Scroll-back paging, smooth loading of older history | done | #23 | #115 |
+| M2-07 | Freshness checker | done | #24 | #124 |
 | M2-08 | The app's own sign-up and sign-in (InvestAnswers sign-in later) | done | #25 | #92 |
 | M2-09 | Plan-based access on placeholder plans | done | #26 | #95 |
 | M2-10 | Safeguards | done | #27 | #99 |
@@ -52,13 +52,13 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M3-07a | ATR port, slice 1: plotted values (agentic-investanswers-indicators) | Phase 1 | #37 |  |
 | M3-07b | ATR port, slice 2: signals | Phase 1 | #38 |  |
 | M3-07c | ATR port, slice 3: backtest | Phase 1 | #39 |  |
-| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | in review | #40 |  |
+| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | done | #40 | #125 |
 | M4-01 | Agent identity | done | #41 | #97 |
 | M4-02 | Read-only MCP tools | done | #42 | #101 |
 | M4-03 | Read-only agent API endpoints | todo | #43 |  |
-| M4-04 | Usage and audit records for every human and agent request | in review | #44 | #119 |
+| M4-04 | Usage and audit records for every human and agent request | done | #44 | #119 |
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | todo | #45 |  |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | todo | #46 |  |
 | UI-01 | Drawing tools panel (client UI feedback) | done | #116 | #117 |
-| UI-02 | Data freshness badge (client UI feedback) | in review | #120 |  |
-| UI-03 | Import from TradingView: chart data and watchlists (client UI feedback) | in review | #121 |  |
+| UI-02 | Data freshness badge (client UI feedback) | done | #120 | #122 |
+| UI-03 | Import from TradingView: chart data and watchlists (client UI feedback) | done | #121 | #122 |
