@@ -37,7 +37,7 @@ const REDIS_PORT = 6379;
 /** AWS's managed prefix list com.amazonaws.global.cloudfront.origin-facing (the same id in every account and region). */
 export const CLOUDFRONT_ORIGIN_FACING = 'pl-3b927c52';
 
-export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/health'] as const;
+export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/usage*', '/health'] as const;
 
 export interface AiaStackProps extends StackProps {
   readonly environment: AiaEnvironment;
@@ -83,6 +83,15 @@ export class AiaStack extends Stack {
     const cooked = new s3.Bucket(this, 'Cooked', { ...bucketDefaults, removalPolicy: RemovalPolicy.RETAIN });
     const chart = new s3.Bucket(this, 'Chart', { ...bucketDefaults, removalPolicy: RemovalPolicy.RETAIN });
     const users = new dynamodb.Table(this, 'Users', {
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    // Usage and audit records (M4-04): one partition per user or agent, expired by `ttl` (decision record T-11).
+    const audit = new dynamodb.Table(this, 'Audit', {
       partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -151,6 +160,8 @@ export class AiaStack extends Stack {
     raw.grantRead(platformRole);
     cooked.grantRead(platformRole);
     users.grantReadWriteData(platformRole);
+    // Records are added and read back, never changed or deleted by the app.
+    audit.grant(platformRole, 'dynamodb:BatchWriteItem', 'dynamodb:PutItem', 'dynamodb:Query', 'dynamodb:DescribeTable');
     const platformTask = task('Platform', 512, 1024, platformRole, role('PlatformTaskExecutionRole', 'ECS: pull the image, write the platform logs'));
     platformTask.addContainer('platform', {
       image,
@@ -162,6 +173,7 @@ export class AiaStack extends Stack {
         AIA_PORT: String(PLATFORM_PORT),
         AIA_DYNAMODB_ENDPOINT: 'aws',
         AIA_USERS_TABLE: users.tableName,
+        AIA_AUDIT_TABLE: audit.tableName,
         // Two hops: the ALB, then CloudFront (from its public addresses).
         AIA_TRUSTED_PROXIES: '2',
       },

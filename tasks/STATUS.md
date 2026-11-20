@@ -52,11 +52,11 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M3-07a | ATR port, slice 1: plotted values (agentic-investanswers-indicators) | Phase 1 | #37 |  |
 | M3-07b | ATR port, slice 2: signals | Phase 1 | #38 |  |
 | M3-07c | ATR port, slice 3: backtest | Phase 1 | #39 |  |
-| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | todo | #40 |  |
+| M3-08 | Leak test: no internals in API, WebSocket or the browser bundle | in review | #40 |  |
 | M4-01 | Agent identity | done | #41 | #97 |
 | M4-02 | Read-only MCP tools | done | #42 | #101 |
 | M4-03 | Read-only agent API endpoints | todo | #43 |  |
-| M4-04 | Usage and audit records for every human and agent request | todo | #44 |  |
+| M4-04 | Usage and audit records for every human and agent request | in review | #44 | #119 |
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | todo | #45 |  |
 | M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | todo | #46 |  |
 | UI-01 | Drawing tools panel (client UI feedback) | in review | #116 |  |
