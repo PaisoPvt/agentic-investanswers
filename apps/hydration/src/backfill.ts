@@ -15,17 +15,21 @@
 // and holidays are empty by nature and do not count against the run.
 //
 // A stored day file supersedes the live minutes the 1m reader used before, so
-// the recent-bars cache windows of instruments with new days are dropped
-// (M2-02); if Redis cannot be reached for that, the run exits 1.
+// the months of the days stored are cooked again from raw (M1-17; a day
+// `pnpm live` already compacted from part of its minutes gets its full bars,
+// as gap repair does) and the recent-bars cache windows of instruments with
+// new days are dropped (M2-02); if Redis cannot be reached for that, the run
+// exits 1.
 
 import { parseArgs } from 'node:util';
 
 import type { BackfillReport, DayOutcome } from '@aia/hydration';
-import { Backfill, FeedPlanError, FeedSetupError, feedsFor, historySegments, historyStart, loadFeedPlan } from '@aia/hydration';
+import { FeedPlanError, FeedSetupError, feedsFor, historySegments, historyStart, loadFeedPlan } from '@aia/hydration';
 import { CRYPTO_PARITY_INSTRUMENTS, parityInstrument } from '@aia/market-data';
 import type { Instrument } from '@aia/shared-kernel';
 import { barTime, isTradingDay, nyseCalendar } from '@aia/shared-kernel';
 
+import { backfillAndRecook } from './backfill-and-recook.js';
 import { dropCachedWindows } from './cache.js';
 import { feedAdapters } from './feeds.js';
 import { localStores } from './stores.js';
@@ -107,7 +111,7 @@ async function main(): Promise<void> {
     if (error instanceof FeedPlanError || error instanceof FeedSetupError) usage(error.message);
     throw error;
   }
-  const { endpoint, raw } = localStores(plan);
+  const { endpoint, raw, minutes, cooked } = localStores(plan);
 
   // Fail fast on an unreachable store, before spending any provider requests.
   const probe = feedsFor(plan, instruments[0]?.symbol ?? '');
@@ -132,25 +136,30 @@ async function main(): Promise<void> {
     // One run per provider when the range spans a switch in the feed plan.
     for (const segment of historySegments(feeds, start, until)) {
       const empties: string[] = [];
-      const backfill = new Backfill({
+      const deps = {
         provider: adapters.historyProvider(segment.source.provider),
         raw,
-        onDay: (i, outcome) => {
+        minutes,
+        cooked,
+        calendar: nyse,
+        onDay: (i: Instrument, outcome: DayOutcome) => {
           if (outcome.kind === 'empty') empties.push(outcome.date);
           progress.day(i, outcome);
         },
-      });
+      };
       console.log(
         `Backfilling ${instrument.symbol} 1m from ${segment.from}${segment.until ? ` to ${segment.until}` : ''} ` +
           `from ${segment.source.provider} into ${endpoint}`,
       );
-      const report = await backfill.run(instrument, {
+      // Stored days are cooked again (M1-17): a day already compacted from live minutes gets its full bars.
+      const { report, recooked } = await backfillAndRecook(deps, instrument, {
         from: segment.from,
         until: segment.until,
         now,
         settleSeconds: segment.source.settleSeconds,
       });
       progress.flush(instrument);
+      if (recooked.length > 0) console.log(`  ${instrument.symbol}: re-cooked ${recooked.join(', ')}`);
       reports.push({ report, unexpected: unexpectedEmpties(instrument, empties) });
       if (report.stored > 0) changed.add(instrument.symbol);
     }
