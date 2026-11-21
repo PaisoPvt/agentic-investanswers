@@ -141,6 +141,15 @@ The client must be able to change the source of any feed at any time with no har
 - **Stored** in DynamoDB, table `aia-<env>-audit` (`aia-audit` locally, created on start-up): `pk` = `human#<accountId>`, `agent#<keyId>` or `anonymous#anonymous`, `sk` = zero-padded time and request id, `ttl` after 400 days. The platform's role may add and query records, never change or delete them. In memory under `AIA_DEV_AUTH=1` and in the e2e server.
 - **Read back:** `GET /usage?subject=me|<agentKeyId>&limit&before` (contract `UsageResponse`): a user's own records or one of their agent keys', an agent its own; anything else is 404. `pnpm usage --account <email|id> [--agent <keyId>] [--days N]` for operators: the records plus totals per route and per day (local DynamoDB, or AWS with `AIA_DYNAMODB_ENDPOINT=aws` and a profile).
 
+## Acceptance (M4-06)
+- **`pnpm acceptance [--url <platform>] [--env <name>] [--skip-local]`** (`apps/platform/src/acceptance.ts`) runs the MVP's four checks as separate commands and writes the sign-off report (`reports/acceptance/<time>-<env>.md` and `.json`). Each check is pass (every command exited 0), fail, not run (exit 2 or a missing setting such as `AIA_AGENT_KEY`) or pending (its command does not exist yet). Exit 0 only when all four pass.
+  1. **Bar parity:** `pnpm parity --build` and `pnpm rebuild-check`.
+  2. **Freshness:** `pnpm freshness --url <url>`.
+  3. **Indicator and backtest parity:** `pnpm parity:indicators`, pending until M3-03 (OI-30).
+  4. **Agents:** `pnpm agent-check --url <url>` (over MCP with an agent key: instruments, plan, bars, an indicator's output, a plan refusal with the upgrade link, a refused write, the request in `GET /usage`) and the server leak test.
+  Also, unless `--skip-local`: `pnpm check` and `pnpm e2e`.
+- **Demo script:** `docs/demo-script.md`, the client review step by step.
+
 ## AWS (M2-01; decision record D-13)
 - **One CDK app** (`infra/`, `@aia/infra`), one stack per AWS account: `aia-dev` (448554876487, us-east-1) now; staging and prod are one entry each in `infra/src/environments.ts`. `pnpm synth` builds the templates with no AWS access; `infra/src/aia-stack.test.ts` checks them.
 - **One container image** (`Dockerfile`: Node 22, ARM, production dependencies, `tsx`) runs both apps. `.dockerignore` keeps secrets, local data and parity exports out of it. CI builds it on an ARM runner.
