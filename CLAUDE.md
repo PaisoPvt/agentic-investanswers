@@ -23,6 +23,7 @@ Read before planning: `docs/architecture.md`, `docs/bar-rules.md`, `docs/glossar
 - `pnpm check`: lint, test and typecheck for affected projects (same as CI)
 - `pnpm owner-inputs [--task <ID>]`: what Sham still owes; with `--task`, exits non-zero if that task is blocked
 - `pnpm status`: task counts from `tasks/STATUS.md`
+- `pnpm acceptance` (M4-06): the MVP's four checks and the sign-off report; `pnpm agent-check` is check 4's agent part. Both need `AIA_AGENT_KEY` (an agent key) for the environment checks.
 - `pnpm freshness` (M2-07): how fresh a running environment is, per step, against `config/freshness.json`; needs `AIA_FRESHNESS_KEY` (an agent key). Run it after each staging release.
 - Added by later tasks: `pnpm parity` (M1-03), `pnpm rebuild-check` (M1-10), `pnpm parity:indicators` (M3-03). Until they exist, say so instead of claiming they passed.
 

@@ -10,6 +10,8 @@
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
     "typecheck": "nx run-many -t typecheck",
+    "acceptance": "tsx --env-file-if-exists=.env apps/platform/src/acceptance.ts",
+    "agent-check": "tsx --env-file-if-exists=.env apps/platform/src/agent-check.ts",
     "check": "nx affected -t lint test typecheck",
     "parity": "tsx apps/hydration/src/parity.ts",
     "backfill": "tsx --env-file-if-exists=.env apps/hydration/src/backfill.ts",
