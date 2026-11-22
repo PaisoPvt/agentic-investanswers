@@ -15,7 +15,7 @@ Every rule here has a matching **export setting** in TradingView: the exports in
 
 - Check the export's filename, not the symbol you searched for.
 - **Massive serves the consolidated tape (M1-07, 2026-11-10), so the TradingView feed must be consolidated too.** On 2026-11-05 regular hours, Massive's NVDA volume was 257.3M shares against 24.4M on the BATS export (10.6×), with both having all 390 minutes and closes equal in only 40% of them. A BATS or single-exchange (for example Nasdaq-only) export will not match Massive on volume or on most closes. OI-27 tracks buying the consolidated feed and re-exporting.
-- **Massive's raw minutes include pre-market and after-hours (from 04:00 New York), sub-penny prices to 6 places and fractional-share volumes to 6 places.** Raw keeps them as sent and as traded (unadjusted); cooking keeps regular hours, rounds to the export's precision and applies splits (M1-08).
+- **Massive's raw minutes include pre-market and after-hours (from 04:00 New York), sub-penny prices to 6 places and fractional-share volumes to 6 places.** Raw keeps them as sent and as traded (unadjusted); cooking keeps regular hours, rounds to the export's precision and applies splits (M1-08b).
 
 Venue does not affect *bucketing*, so the BATS exports are still valid for proving session, DST and alignment rules — which is what they were used for above.
 
@@ -23,6 +23,7 @@ Venue does not affect *bucketing*, so the BATS exports are still valid for provi
 ## Crypto
 - Trades 24/7; there are no sessions, holidays or gaps by design.
 - Daily bar: 00:00 to 24:00 UTC.
+- **Built and checked (M1-08a):** 1D is cooked from 1-minute bars; 1W (Monday 00:00 UTC) and 1M (the 1st, 00:00 UTC) are rolled up from 1D, which for crypto equals rolling them up from minutes, since a UTC day never crosses a week or month start. Build parity (TradingView's 1h→1D, 1D→1W and 1M) is exact apart from the two approved exceptions, the rebuild check covers them, and source fidelity reports them (on 2026-11-22: open, high and close 100%, low 99.7–100%, volume within 4.7% of TradingView, as for every Coinbase timeframe).
 - Volume is in the base asset (BTC, ETH), as TradingView shows for `COINBASE:BTCUSD`.
 
 ## Stocks

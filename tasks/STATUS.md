@@ -18,7 +18,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-06 | Cook intraday rollups 1m → 5m/15m/1h/4h, incrementally (one new 1m updates only the affect | done | #12 | #62 |
 | M1-07 | Massive (stocks) backfill and live stream for 2 symbols, same ports as crypto | done | #13 | #72 |
 | M1-07b | Massive live stream (needs a plan with WebSocket, OI-28) | blocked | #71 |  |
-| M1-08a | Crypto 1D, 1W and 1M: cooked, served and live | in progress | #131 |  |
+| M1-08a | Crypto 1D, 1W and 1M: cooked, served and live | in review | #131 | #132 |
 | M1-08b | Stock session-aware rollups and stock D/W/M (needs OI-27) | blocked | #14 |  |
 | M1-09 | Gap detector + auto re-fetch (completeness check), per market hours | done | #15 | #73 |
 | M1-10 | Rebuild check | done | #16 | #69 |

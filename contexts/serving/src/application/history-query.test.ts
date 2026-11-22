@@ -77,7 +77,7 @@ describe('HistoryQuery.parse', () => {
 
   it('refuses stocks and calendar timeframes until M1-08', () => {
     expect(errorOf({ instrument: 'NVDA', tf: '5m' })?.code).toBe('timeframe_not_served');
-    expect(errorOf({ instrument: 'BTCUSD', tf: '1D' })?.code).toBe('timeframe_not_served');
+    expect(errorOf({ instrument: 'NVDA', tf: '1D' })?.code).toBe('timeframe_not_served');
   });
 });
 

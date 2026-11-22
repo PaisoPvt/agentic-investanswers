@@ -65,6 +65,14 @@ function madeUpMinute(instrument: Instrument, time: number): Bar {
   };
 }
 
+/** The made-up minutes in `[from, until]` before NOW (synchronously, for the live feed's whole days and months). */
+function madeUpMinutes(instrument: Instrument, from: number, until: number): Bar[] {
+  const bars: Bar[] = [];
+  const start = Math.max(from, E2E_NOW - HISTORY_DAYS * 86_400);
+  for (let t = Math.ceil(start / 60) * 60; t <= until && t < E2E_NOW; t += 60) bars.push(madeUpMinute(instrument, t));
+  return bars;
+}
+
 /** Made-up history before NOW, plus the minutes the test stored. */
 class E2EMinutes {
   readonly stored = new Map<string, Map<number, Bar>>();
@@ -72,9 +80,7 @@ class E2EMinutes {
   read(symbol: string, from: BarTime, until: BarTime): Promise<Bar[]> {
     const instrument = INSTRUMENTS.find((i) => i.symbol === symbol);
     if (instrument === undefined) return Promise.resolve([]);
-    const bars: Bar[] = [];
-    const start = Math.max(from, E2E_NOW - HISTORY_DAYS * 86_400);
-    for (let t = Math.ceil(start / 60) * 60; t <= until && t < E2E_NOW; t += 60) bars.push(madeUpMinute(instrument, t));
+    const bars = madeUpMinutes(instrument, from, until);
     for (const [t, bar] of [...(this.stored.get(symbol) ?? new Map<number, Bar>())].sort(([a], [b]) => a - b)) {
       if (t >= from && t <= until) bars.push(bar);
     }
@@ -83,35 +89,65 @@ class E2EMinutes {
 }
 
 const SPAN_SECONDS: Partial<Record<Timeframe, number>> = { '5m': 300, '15m': 900, '1h': 3_600, '4h': 14_400 };
+const DAY = 86_400;
+/** The day NOW falls in: days before it are made-up history only; it also holds the minutes the test stores. */
+const TODAY = Math.floor(E2E_NOW / DAY) * DAY;
 
-/** 5m to 4h bars rolled up from the minutes: `[from, until]` by bar time. */
+/** Bars rolled up into `timeframe`'s buckets, keeping those that open in `[from, until]` (first open, extremes, last close, summed volume). */
+function aggregate(instrument: Instrument, timeframe: Timeframe, parts: readonly Bar[], from: number, until: number): Bar[] {
+  const bars: Bar[] = [];
+  for (const part of parts) {
+    const time = alignToTimeframe(instrument, timeframe, part.time);
+    if (time === undefined || time < from || time > until) continue;
+    const last = bars[bars.length - 1];
+    if (last === undefined || last.time !== time) {
+      bars.push({ ...part, time });
+      continue;
+    }
+    bars[bars.length - 1] = {
+      time,
+      open: last.open,
+      high: price(Math.max(last.high, part.high)),
+      low: price(Math.min(last.low, part.low)),
+      close: part.close,
+      volume: volume(last.volume + part.volume),
+    };
+  }
+  return bars;
+}
+
+/**
+ * 5m to 4h bars rolled up from the minutes, and 1D, 1W and 1M as the real
+ * store keeps them (M1-08a): the made-up days are rolled up once and kept,
+ * today is rolled up from its minutes, and weeks and months from days.
+ * `[from, until]` by bar time.
+ */
 class E2ECooked {
+  private readonly pastDays = new Map<string, Bar[]>();
+
   constructor(private readonly minutes: E2EMinutes) {}
 
   async getRange(symbol: string, timeframe: Timeframe, from: BarTime, until: BarTime): Promise<Bar[]> {
     const instrument = INSTRUMENTS.find((i) => i.symbol === symbol);
     if (instrument === undefined) return [];
+    if (timeframe === '1D' || timeframe === '1W' || timeframe === '1M') {
+      const days = await this.days(instrument);
+      return timeframe === '1D' ? days.filter((d) => d.time >= from && d.time <= until) : aggregate(instrument, timeframe, days, from, until);
+    }
     const span = SPAN_SECONDS[timeframe];
     if (span === undefined) return [];
-    const bars: Bar[] = [];
-    for (const minute of await this.minutes.read(symbol, from, barTime(until + span - 60))) {
-      const time = alignToTimeframe(instrument, timeframe, minute.time);
-      if (time === undefined || time < from || time > until) continue;
-      const last = bars[bars.length - 1];
-      if (last === undefined || last.time !== time) {
-        bars.push({ ...minute, time });
-        continue;
-      }
-      bars[bars.length - 1] = {
-        time,
-        open: last.open,
-        high: price(Math.max(last.high, minute.high)),
-        low: price(Math.min(last.low, minute.low)),
-        close: minute.close,
-        volume: volume(last.volume + minute.volume),
-      };
+    return aggregate(instrument, timeframe, await this.minutes.read(symbol, from, barTime(until + span - 60)), from, until);
+  }
+
+  /** Every day: the made-up past (rolled up once), then today from its minutes. */
+  private async days(instrument: Instrument): Promise<Bar[]> {
+    let past = this.pastDays.get(instrument.symbol);
+    if (past === undefined) {
+      past = aggregate(instrument, '1D', madeUpMinutes(instrument, E2E_NOW - HISTORY_DAYS * DAY, TODAY - 60), 0, TODAY - 1);
+      this.pastDays.set(instrument.symbol, past);
     }
-    return bars;
+    const today = aggregate(instrument, '1D', await this.minutes.read(instrument.symbol, barTime(TODAY), barTime(TODAY + DAY - 60)), TODAY, TODAY);
+    return [...past, ...today];
   }
 }
 
@@ -121,7 +157,7 @@ class E2ELive {
   private readonly unstored = new Map<number, Bar>();
 
   constructor(readonly instrument: Instrument) {
-    this.feed = new SimulatedLiveFeed(instrument);
+    this.feed = new SimulatedLiveFeed(instrument, (from, until) => madeUpMinutes(instrument, from, until));
     // As `pnpm live` after its first minute: the minute before NOW is cooked, so every timeframe forms.
     this.feed.stored(madeUpMinute(instrument, E2E_NOW - 60));
   }
