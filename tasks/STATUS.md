@@ -46,7 +46,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-16 | Deploy the stack to the staging account | blocked | #114 |  |
 | M3-01 | IndicatorDefinition interface | done | #31 | #85 |
 | M3-02 | Settings schema → settings dialog (generated from the declared inputs, with range limits) | done | #32 | #86, #105 |
-| M3-03 | Indicator parity harness | todo | #33 |  |
+| M3-03 | Indicator parity harness | in progress (built ahead of OI-30, Sham 2026-11-22) | #33 |  |
 | M3-04 | Indicator engine | done | #34 | #89 |
 | M3-05 | The MVP indicator (SMA) end to end (chart, dialog, output types) | in review (parity waits for OI-30, staging for OI-31) | #35 | #110 |
 | M3-06 | Backtest engine (shared): trades, profit, ROI, win rate, totals | done, parity pending (OI-30) | #36 | #91 |
