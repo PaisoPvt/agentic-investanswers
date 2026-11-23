@@ -1,6 +1,6 @@
 // The platform's REST routes as the chart uses them (GET /bars, GET
 // /instruments, GET /indicators, POST /indicators/:id/settings, POST
-// /indicators/:id/outputs, /auth/*), and the /live URL. Same origin: the Vite dev server proxies
+// /indicators/:id/outputs, /auth/*, GET and PUT /preferences), and the /live URL. Same origin: the Vite dev server proxies
 // to the platform locally, and staging serves both behind one host (M2-01).
 //
 // A session token, when there is one, goes on every request: the
@@ -11,6 +11,7 @@
 import type {
   AccountInfo,
   ApiErrorBody,
+  ChartPreferencesDto,
   HistoryResponse,
   IndicatorOutputsRequest,
   IndicatorOutputsResponse,
@@ -108,6 +109,17 @@ export class PlatformClient {
     await this.send('/auth/sign-out', { method: 'POST' }).catch(() => undefined);
   }
 
+  /** The signed-in person's saved chart preferences (M2-13); empty when nothing is saved. */
+  preferences(): Promise<ChartPreferencesDto> {
+    return this.get<ChartPreferencesDto>('/preferences');
+  }
+
+  /** Replaces the saved chart preferences with these. */
+  async savePreferences(preferences: ChartPreferencesDto): Promise<void> {
+    const response = await this.send('/preferences', { method: 'PUT', body: preferences });
+    if (!response.ok) throw apiError(response.status, await readError(response));
+  }
+
   liveUrl(): string {
     const url = new URL('/live', this.options.origin);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -122,7 +134,7 @@ export class PlatformClient {
     throw apiError(response.status, await readError(response));
   }
 
-  private send(path: string, { method, body }: { readonly method: 'GET' | 'POST'; readonly body?: unknown }): Promise<Response> {
+  private send(path: string, { method, body }: { readonly method: 'GET' | 'POST' | 'PUT'; readonly body?: unknown }): Promise<Response> {
     const token = this.options.token();
     const headers: Record<string, string> = token === undefined ? {} : { authorization: `Bearer ${token}` };
     if (body !== undefined) headers['content-type'] = 'application/json';

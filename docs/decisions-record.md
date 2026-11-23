@@ -89,6 +89,10 @@ Open questions, what we assume meanwhile, and the latest date the answer is usef
 **P-04 · Stock history before November 2024** (OI-29, due 2026-11-16)
 - **Meanwhile:** the current Massive plan serves 2 rolling years of 1-minute data, so stock daily, weekly and monthly bars start in November 2024 unless a plan with more history is chosen.
 
+**P-05 · The chart theme is saved, but shown only once themes exist** (2026-11-23, M2-13; themes are M2-12, deferred by Sham)
+- **Meanwhile:** each signed-in user's last instrument and timeframe are saved on the server and the chart reopens on them, on any browser. A theme (light or dark) can be saved with them and is kept, but the chart has one look until M2-12 adds themes.
+- **Next use:** drawings and imported watchlists (T-10) can move to the same per-account store when Sham wants them to follow the trader.
+
 ## Decided (for context)
 Settled choices the client may ask about.
 

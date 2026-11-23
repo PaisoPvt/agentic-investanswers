@@ -37,7 +37,7 @@ const REDIS_PORT = 6379;
 /** AWS's managed prefix list com.amazonaws.global.cloudfront.origin-facing (the same id in every account and region). */
 export const CLOUDFRONT_ORIGIN_FACING = 'pl-3b927c52';
 
-export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/usage*', '/health'] as const;
+export const API_PATHS = ['/bars*', '/instruments*', '/indicators*', '/plan*', '/auth/*', '/live*', '/mcp*', '/usage*', '/preferences', '/health'] as const;
 
 export interface AiaStackProps extends StackProps {
   readonly environment: AiaEnvironment;

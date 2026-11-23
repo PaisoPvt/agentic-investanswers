@@ -55,3 +55,48 @@ test('creating an account with a short password shows the server rule', async ({
   await page.getByTestId('sign-in-submit').click();
   await expect(page.getByTestId('sign-in-error')).toContainText(/10/);
 });
+
+// M2-13 done-check: reload restores preferences per user.
+test('the chart reopens on each account’s own last instrument and timeframe', async ({ page, browser }) => {
+  const signUp = async (email: string) => {
+    await page.goto('/');
+    await page.getByTestId('sign-in-switch').click();
+    await page.getByTestId('email').fill(email);
+    await page.getByTestId('password').fill(PASSWORD);
+    await page.getByTestId('sign-in-submit').click();
+    await expect(page.getByTestId('account-email')).toHaveText(email);
+  };
+
+  // A new account opens on the defaults, then picks ETHUSD 1h.
+  await signUp(`prefs-a-${Date.now()}@example.com`);
+  await expect(page.getByTestId('instrument')).toHaveValue('BTCUSD');
+  await expect(page.getByTestId('tf-1m')).toHaveAttribute('aria-pressed', 'true');
+  // Saved once, a second after the last change.
+  const saved = page.waitForResponse((r) => r.url().endsWith('/preferences') && r.request().method() === 'PUT');
+  await page.getByTestId('instrument').selectOption('ETHUSD');
+  await page.getByTestId('tf-1h').click();
+  expect((await saved).status()).toBe(204);
+
+  // Reload: the same choice, from the server.
+  await page.reload();
+  await expect(page.getByTestId('instrument')).toHaveValue('ETHUSD');
+  await expect(page.getByTestId('tf-1h')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('status')).toHaveAttribute('data-series', 'ready');
+
+  // Another browser with no local state, same account: still ETHUSD 1h, so it is the server's.
+  const token = await page.evaluate(() => localStorage.getItem('aia.session'));
+  const fresh = await browser.newContext();
+  const other = await fresh.newPage();
+  await other.goto(page.url());
+  await other.evaluate((t) => localStorage.setItem('aia.session', t ?? ''), token);
+  await other.reload();
+  await expect(other.getByTestId('instrument')).toHaveValue('ETHUSD');
+  await expect(other.getByTestId('tf-1h')).toHaveAttribute('aria-pressed', 'true');
+  await fresh.close();
+
+  // A second account keeps its own: the defaults.
+  await page.getByTestId('sign-out').click();
+  await signUp(`prefs-b-${Date.now()}@example.com`);
+  await expect(page.getByTestId('instrument')).toHaveValue('BTCUSD');
+  await expect(page.getByTestId('tf-1m')).toHaveAttribute('aria-pressed', 'true');
+});
