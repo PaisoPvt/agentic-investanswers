@@ -8,8 +8,10 @@
 // shapes and notes; Delete removes the selected one, Esc cancels placing.
 // TradingView import (UI-03): chart data is drawn over our bars with a match
 // report (browser only, never stored); a watchlist opens beside the chart.
+// Preferences (M2-13): the chart opens on the instrument and timeframe saved
+// for the account, and saves each new choice on the server.
 
-import type { IndicatorSettingsDialog, IndicatorsResponse, InstrumentInfo, SettingsAccepted } from '@aia/client-contract';
+import type { ChartPreferencesDto, IndicatorSettingsDialog, IndicatorsResponse, InstrumentInfo, SettingsAccepted } from '@aia/client-contract';
 import type { Timeframe } from '@aia/shared-kernel';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -34,6 +36,7 @@ import { FreshnessBadge } from './FreshnessBadge.js';
 import { NoteDialog } from './NoteDialog.js';
 import { WatchlistPanel } from './WatchlistPanel.js';
 import { SettingsDialog } from './SettingsDialog.js';
+import { defaultTimeframe, startingChoice } from './starting-choice.js';
 import { Toolbar } from './Toolbar.js';
 
 /** The live connection's state, for useSyncExternalStore. */
@@ -50,7 +53,6 @@ export interface AppProps {
   readonly session?: Session | undefined;
 }
 
-/** The first choice open to the caller: 1m if included, else the shortest included timeframe. */
 /** Keys typed into a field or a dialog are not chart shortcuts. */
 function typing(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -78,9 +80,8 @@ function reportText(report: MatchReport | undefined, precision: number): string 
   return `${head} · first difference ${utcMinute(d.time)} UTC, ${d.field} ${fmt(d.ours)} here vs ${fmt(d.theirs)}`;
 }
 
-function defaultTimeframe(instrument: InstrumentInfo): Timeframe | undefined {
-  return instrument.included.includes('1m') ? '1m' : instrument.included[0];
-}
+/** How long the chart waits after the last change before saving preferences. */
+const SAVE_AFTER_MS = 1_000;
 
 export function App({ client, live, connection, session }: AppProps) {
   const [instruments, setInstruments] = useState<readonly InstrumentInfo[]>();
@@ -108,6 +109,10 @@ export function App({ client, live, connection, session }: AppProps) {
   const [importReport, setImportReport] = useState<MatchReport>();
   const [importError, setImportError] = useState<string>();
   const fileInput = useRef<HTMLInputElement>(null);
+  /** The saved theme, kept as it is until the chart has themes (M2-12). */
+  const theme = useRef<ChartPreferencesDto['theme']>(undefined);
+  /** The instrument and timeframe last saved or loaded, so they are not saved again. */
+  const lastSaved = useRef<string | undefined>(undefined);
   const shown = useMemo<readonly ShownIndicator[]>(() => Object.values(applied).map((a) => ({ id: a.indicatorId, settings: a.settings })), [applied]);
 
   useEffect(() => {
@@ -124,14 +129,18 @@ export function App({ client, live, connection, session }: AppProps) {
 
   useEffect(() => {
     let current = true;
-    client.instruments().then(
-      ({ instruments: list }) => {
+    // Both at once, so preferences never delay the chart; without them it opens on the defaults.
+    const saved = client.preferences().catch((): ChartPreferencesDto => ({}));
+    Promise.all([client.instruments(), saved]).then(
+      ([{ instruments: list }, preferences]) => {
         if (!current) return;
         setInstruments(list);
-        const first = list.find((i) => i.included.length > 0);
-        if (first !== undefined) {
-          setSymbol(first.symbol);
-          setTimeframe(defaultTimeframe(first));
+        theme.current = preferences.theme;
+        const choice = startingChoice(list, preferences);
+        if (choice !== undefined) {
+          lastSaved.current = `${choice.symbol}/${choice.timeframe ?? ''}`;
+          setSymbol(choice.symbol);
+          setTimeframe(choice.timeframe);
         }
       },
       (error: unknown) => current && setFailure(error instanceof Error ? error.message : 'could not reach the server'),
@@ -140,6 +149,18 @@ export function App({ client, live, connection, session }: AppProps) {
       current = false;
     };
   }, [client]);
+
+  // Each new choice is saved once the trader pauses; a failed save never stops the chart.
+  useEffect(() => {
+    if (symbol === undefined || timeframe === undefined || lastSaved.current === `${symbol}/${timeframe}`) return undefined;
+    const timer = setTimeout(() => {
+      lastSaved.current = `${symbol}/${timeframe}`;
+      client
+        .savePreferences({ instrument: symbol, timeframe, ...(theme.current === undefined ? {} : { theme: theme.current }) })
+        .catch((error: unknown) => console.warn(`preferences not saved: ${error instanceof Error ? error.message : String(error)}`));
+    }, SAVE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [client, symbol, timeframe]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

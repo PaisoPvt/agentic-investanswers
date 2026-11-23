@@ -74,6 +74,9 @@ importers:
       '@aia/indicators':
         specifier: workspace:*
         version: link:../../contexts/indicators
+      '@aia/preferences':
+        specifier: workspace:*
+        version: link:../../contexts/preferences
       '@aia/serving':
         specifier: workspace:*
         version: link:../../contexts/serving
@@ -226,6 +229,9 @@ importers:
       '@aia/shared-kernel':
         specifier: workspace:*
         version: link:../../shared-kernel
+      '@aws-sdk/client-dynamodb':
+        specifier: ^3.1168.0
+        version: 3.1168.0
 
   contexts/serving:
     dependencies:

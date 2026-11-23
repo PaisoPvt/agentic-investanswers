@@ -28,6 +28,7 @@ import { AuditLog, MemoryUsageRecordStore } from '@aia/audit';
 import type { LiveBarUpdate } from '@aia/data';
 import { BTCUSD, ETHUSD, MemoryDataLayer, SimulatedLiveFeed } from '@aia/data';
 import { IndicatorEngine, IndicatorRegistry, MemoryIndicatorOutputCache } from '@aia/indicators';
+import { ChartPreferencesBook, MemoryPreferencesStore } from '@aia/preferences';
 import { HistoryQuery, LiveGateway } from '@aia/serving';
 import type { Bar, BarTime, Instrument, Timeframe } from '@aia/shared-kernel';
 import { alignToTimeframe, barTime, price, volume } from '@aia/shared-kernel';
@@ -234,6 +235,9 @@ export async function startE2EServer(port: number, options: { readonly signIn?: 
     now: () => barTime(E2E_NOW),
     // Usage and audit records in memory (M4-04), so every route runs as on AWS.
     audit: new AuditLog({ store: new MemoryUsageRecordStore() }),
+    // Saved preferences (M2-13) only with sign-in: in developer access every test is the same user,
+    // so one test's choice would open the next one's chart.
+    ...(options.signIn === true ? { preferences: new ChartPreferencesBook(new MemoryPreferencesStore()) } : {}),
     logger: false,
   });
 
