@@ -62,6 +62,9 @@ importers:
       '@aia/audit':
         specifier: workspace:*
         version: link:../../contexts/audit
+      '@aia/backtesting':
+        specifier: workspace:*
+        version: link:../../contexts/backtesting
       '@aia/client-contract':
         specifier: workspace:*
         version: link:../../contexts/client-contract

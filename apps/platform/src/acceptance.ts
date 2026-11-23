@@ -86,7 +86,15 @@ const indicatorParity: CheckResult =
         runs: [notRun('pnpm parity:indicators', 'not built yet (M3-03)')],
         note: 'Waiting on OI-30: the TradingView exports of the SMA demo strategy. The harness (M3-03) is built once they arrive.',
       }
-    : check(3, 'Indicator and backtest parity', 'The SMA demo indicator and its backtest match TradingView exactly.', [run('pnpm parity:indicators', ['parity:indicators'])]);
+    : (() => {
+        const ran = run('pnpm parity:indicators', ['parity:indicators']);
+        const proves = 'The SMA demo indicator and its backtest match TradingView exactly.';
+        // Exit 2 naming OI-30: the exports are not on this machine yet, so the check is waiting, not broken.
+        if (ran.exitCode === 2 && (ran.tail ?? []).some((l) => l.includes('OI-30'))) {
+          return { id: 3, name: 'Indicator and backtest parity', proves, verdict: 'pending', runs: [ran], note: 'Waiting on OI-30: the TradingView exports of the SMA demo strategy (docs/bar-rules.md, "Indicator parity").' } satisfies CheckResult;
+        }
+        return check(3, 'Indicator and backtest parity', proves, [ran]);
+      })();
 checks.push(indicatorParity);
 
 checks.push(

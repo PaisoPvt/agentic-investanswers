@@ -17,6 +17,7 @@
     "@aia/access": "workspace:*",
     "@aia/agent": "workspace:*",
     "@aia/audit": "workspace:*",
+    "@aia/backtesting": "workspace:*",
     "@aia/client-contract": "workspace:*",
     "@aia/data": "workspace:*",
     "@aia/indicators": "workspace:*",
