@@ -1,5 +1,6 @@
 // `pnpm rebuild-check`: re-cook every cooked month from raw, in memory, and
-// diff it against the cooked store (CLAUDE.md rule 3). Writes nothing.
+// diff it against the cooked store (CLAUDE.md rule 3), every timeframe (crypto
+// 1D, 1W and 1M since M1-08a). Writes nothing.
 //
 // Composition only: RebuildCheck and its report live in @aia/market-data.
 //
@@ -11,13 +12,7 @@
 
 import { parseArgs } from 'node:util';
 
-import {
-  CRYPTO_PARITY_INSTRUMENTS,
-  RebuildCheck,
-  formatRebuildReport,
-  parityInstrument,
-  rebuildPassed,
-} from '@aia/market-data';
+import { CALENDAR_ROLLUPS, CRYPTO_PARITY_INSTRUMENTS, formatRebuildReport, INTRADAY_ROLLUPS, parityInstrument, RebuildCheck, rebuildPassed } from '@aia/market-data';
 import { loadFeedPlan } from '@aia/hydration';
 import type { PartitionResult } from '@aia/market-data';
 import type { Instrument } from '@aia/shared-kernel';
@@ -43,8 +38,8 @@ function parse(): { instruments: Instrument[]; from: string; until: string } {
   const instruments = (values.symbol ?? []).map((symbol) => {
     const instrument = parityInstrument(symbol) ?? usage(`Unknown symbol: ${symbol}`);
     // Raw stock bars keep Massive's precision (4-place prices, 6-place
-    // volumes); turning them into whole-cent, whole-share bars is M1-08.
-    if (instrument.kind === 'stock') usage(`${symbol} is a stock; cooking stocks is M1-08`);
+    // volumes); turning them into whole-cent, whole-share bars is M1-08b.
+    if (instrument.kind === 'stock') usage(`${symbol} is a stock; cooking stocks is M1-08b`);
     return instrument;
   });
   const date = /^\d{4}-\d{2}-\d{2}$/;
@@ -70,7 +65,8 @@ async function main(): Promise<void> {
 
   const results: PartitionResult[] = [];
   try {
-    for (const instrument of instruments) results.push(...(await check.run(instrument, months)));
+    // Every timeframe: intraday per month, and for crypto 1D, 1W and 1M over the same months (M1-08a).
+    for (const instrument of instruments) results.push(...(await check.run(instrument, months, [...INTRADAY_ROLLUPS, ...CALENDAR_ROLLUPS])));
   } catch (error) {
     console.error(
       `Could not read the bar stores at ${stores.endpoint}: ${String(error)}\n` +
@@ -80,7 +76,6 @@ async function main(): Promise<void> {
   }
 
   console.log(formatRebuildReport(results, instruments));
-  console.log('\n1D, 1W and 1M join the check once M1-08 cooks them.');
   process.exit(rebuildPassed(results) ? 0 : 1);
 }
 

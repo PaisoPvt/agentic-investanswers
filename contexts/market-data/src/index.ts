@@ -3,7 +3,7 @@
 export type { CookedBarStorePort } from './application/cooked-bar-store-port.js';
 export type { OneMinuteBarSourcePort } from './application/one-minute-bar-source-port.js';
 export type { CookIntradayDeps } from './application/cook-intraday.js';
-export { CookIntraday, CookIntradayError, INTRADAY_ROLLUPS } from './application/cook-intraday.js';
+export { CALENDAR_ROLLUPS, CookIntraday, CookIntradayError, INTRADAY_ROLLUPS, cooksCalendar } from './application/cook-intraday.js';
 export { RollUpError, affectedBarTimes, rollUp } from './domain/roll-up.js';
 export { CookedStoreError } from './application/cooked-bar-store-port.js';
 

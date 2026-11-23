@@ -53,8 +53,8 @@ describe('GET /instruments', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual<InstrumentsResponse>({
       instruments: [
-        { symbol: 'BTCUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h'], included: ['1h', '4h'], pricePrecision: BTCUSD.priceScale, volumePrecision: BTCUSD.volumeScale },
-        { symbol: 'ETHUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h'], included: [], pricePrecision: ETHUSD.priceScale, volumePrecision: ETHUSD.volumeScale },
+        { symbol: 'BTCUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M'], included: ['1h', '4h'], pricePrecision: BTCUSD.priceScale, volumePrecision: BTCUSD.volumeScale },
+        { symbol: 'ETHUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M'], included: [], pricePrecision: ETHUSD.priceScale, volumePrecision: ETHUSD.volumeScale },
         { symbol: 'NVDA', kind: 'stock', timeframes: [], included: [], pricePrecision: NVDA.priceScale, volumePrecision: NVDA.volumeScale },
       ],
     });

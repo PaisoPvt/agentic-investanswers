@@ -1,7 +1,10 @@
-// Cook the intraday timeframes (5m, 15m, 1h, 4h) from stored 1-minute bars.
-//
-// D/W/M and the stock session specifics are M1-08's; this use case refuses
-// calendar timeframes rather than half-handling them.
+// Cook the intraday timeframes (5m, 15m, 1h, 4h) from stored 1-minute bars,
+// and for crypto the calendar timeframes too (M1-08a): 1D from the same
+// minutes, then 1W and 1M rolled up from the stored 1D bars. For crypto a UTC
+// day never crosses a week or month start, so this equals rolling them up
+// from minutes, for the cost of a year file instead of up to 31 days of
+// minutes. Stocks' calendar timeframes need their sessions (M1-08b), so they
+// are not cooked here yet.
 
 import type {
   Bar,
@@ -10,9 +13,9 @@ import type {
   MarketCalendar,
   Timeframe,
 } from '@aia/shared-kernel';
-import { barTime, isIntraday, timeframeSeconds } from '@aia/shared-kernel';
+import { alignToTimeframe, barTime, isIntraday, timeframeSeconds } from '@aia/shared-kernel';
 
-import { partitionBounds, partitionOf } from '../domain/cooked-partition.js';
+import { partitionBounds, partitionOf, partitionsBetween } from '../domain/cooked-partition.js';
 import { affectedBarTimes, rollUp } from '../domain/roll-up.js';
 import type { CookedBarStorePort } from './cooked-bar-store-port.js';
 import type { OneMinuteBarSourcePort } from './one-minute-bar-source-port.js';
@@ -21,6 +24,18 @@ export class CookIntradayError extends Error {}
 
 /** The intraday timeframes built from 1-minute bars, shortest first. */
 export const INTRADAY_ROLLUPS: readonly Timeframe[] = ['5m', '15m', '1h', '4h'];
+
+/** The calendar timeframes: 1D from 1-minute bars, 1W and 1M from 1D (M1-08a). */
+export const CALENDAR_ROLLUPS: readonly Timeframe[] = ['1D', '1W', '1M'];
+
+/** Whether an instrument's calendar timeframes are cooked: crypto now; stocks with their sessions (M1-08b). */
+export function cooksCalendar(instrument: Instrument): boolean {
+  return instrument.kind === 'crypto';
+}
+
+const DAY = 86_400;
+/** Longer than any week or month: how far past a range the 1D bars of its last week or month can reach. */
+const LONGEST_CALENDAR_BAR = 32 * DAY;
 
 function spanOf(timeframe: Timeframe): number {
   if (!isIntraday(timeframe)) {
@@ -146,6 +161,7 @@ export class CookIntraday {
       await this.writeMerged(instrument.symbol, timeframe, bars, (time) => time >= from && time <= until);
       written.set(timeframe, bars.length);
     }
+    for (const [timeframe, count] of await this.cookCalendar(instrument, minutes, from, until)) written.set(timeframe, count);
     return written;
   }
 
@@ -160,6 +176,40 @@ export class CookIntraday {
       const bars = rollUp(instrument, timeframe, minutes, this.deps.calendar);
       await this.writeMerged(instrument.symbol, timeframe, bars, (time) => time >= from && time <= until);
     }
+    await this.cookCalendar(instrument, minutes, from, until);
+  }
+
+  /**
+   * The calendar timeframes for `[from, until]` (whole UTC days), from its
+   * minutes: the 1D bars of those days, then every 1W and 1M bar containing
+   * one of them, rebuilt from the stored 1D bars. Returns the bars written per
+   * timeframe; nothing for an instrument whose calendar timeframes are not
+   * cooked yet.
+   */
+  private async cookCalendar(instrument: Instrument, minutes: readonly Bar[], from: BarTime, until: BarTime): Promise<Map<Timeframe, number>> {
+    const written = new Map<Timeframe, number>();
+    if (!cooksCalendar(instrument)) return written;
+    const days = rollUp(instrument, '1D', minutes, this.deps.calendar);
+    await this.writeMerged(instrument.symbol, '1D', days, (time) => time >= from && time <= until);
+    written.set('1D', days.length);
+    for (const timeframe of ['1W', '1M'] as const) {
+      const first = alignToTimeframe(instrument, timeframe, from, this.deps.calendar) ?? from;
+      const last = alignToTimeframe(instrument, timeframe, until, this.deps.calendar) ?? until;
+      const stored = await this.storedBars(instrument.symbol, '1D', first, barTime(until + LONGEST_CALENDAR_BAR));
+      const bars = rollUp(instrument, timeframe, stored, this.deps.calendar).filter((b) => b.time >= first && b.time <= last);
+      await this.writeMerged(instrument.symbol, timeframe, bars, (time) => time >= first && time <= last);
+      written.set(timeframe, bars.length);
+    }
+    return written;
+  }
+
+  /** Stored bars in `[from, until]`, read partition by partition (one GET each). */
+  private async storedBars(symbol: string, timeframe: Timeframe, from: BarTime, until: BarTime): Promise<Bar[]> {
+    const bars: Bar[] = [];
+    for (const partition of partitionsBetween(timeframe, from, until)) {
+      for (const bar of (await this.deps.store.getPartition(symbol, timeframe, partition)) ?? []) if (bar.time >= from && bar.time <= until) bars.push(bar);
+    }
+    return bars.sort((a, b) => a.time - b.time);
   }
 
   /** Apply new minutes to every intraday timeframe, shortest first. */

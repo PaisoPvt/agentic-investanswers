@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryCookedWatermarks } from '../adapters/memory-cooked-watermarks.js';
 import { partitionOf } from '../domain/cooked-partition.js';
 import { rollUp } from '../domain/roll-up.js';
-import { CookIntraday, INTRADAY_ROLLUPS } from './cook-intraday.js';
+import { CookIntraday, CALENDAR_ROLLUPS, INTRADAY_ROLLUPS } from './cook-intraday.js';
 import { CookedCompactor } from './cooked-compactor.js';
 import type { CookedBarStorePort } from './cooked-bar-store-port.js';
 import { CookedReader } from './cooked-reader.js';
@@ -135,7 +135,8 @@ describe('CookedCompactor', () => {
     const { store, watermarks, compactor } = setup(raw);
     expect(await compactor.compact(BTC, barTime(D0))).toBe(3); // initialDays: 3
     expect(await watermarks.getWatermark('BTCUSD')).toBe(D0);
-    expect(store.puts).toBe(3 * INTRADAY_ROLLUPS.length);
+    // One write per timeframe per settled day: intraday, then 1D, 1W and 1M (M1-08a).
+    expect(store.puts).toBe(3 * (INTRADAY_ROLLUPS.length + CALENDAR_ROLLUPS.length));
     expect(await compactor.compact(BTC, barTime(D0))).toBe(0); // up to date: nothing to do
     for (const tf of INTRADAY_ROLLUPS) {
       expect(await store.getRange('BTCUSD', tf, barTime(D0 - 3 * DAY), barTime(D0 - 1))).toEqual(truth(raw, tf, D0 - 3 * DAY, D0 - 1));
@@ -146,7 +147,8 @@ describe('CookedCompactor', () => {
     const raw = minutes(D0 - 3 * DAY, 3 * 1_440);
     const { store, watermarks, compactor } = setup(raw);
     let puts = 0;
-    store.failPut = () => ++puts === 6; // during the second day
+    const perDay = INTRADAY_ROLLUPS.length + CALENDAR_ROLLUPS.length;
+    store.failPut = () => ++puts === perDay + 2; // during the second day
     await expect(compactor.compact(BTC, barTime(D0))).rejects.toThrow('S3 is down');
     expect(await watermarks.getWatermark('BTCUSD')).toBe(D0 - 2 * DAY);
     store.failPut = undefined;

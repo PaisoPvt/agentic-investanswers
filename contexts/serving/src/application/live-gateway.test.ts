@@ -98,13 +98,13 @@ describe('LiveGateway: subscriptions', () => {
     const { socket, session, say } = await connect();
     await say('subscribe', 'BTCUSD', '5m');
     await say('subscribe', 'DOGE', '5m');
-    await say('subscribe', 'BTCUSD', '1D');
+    await say('subscribe', 'NVDA', '1D');
     await say('subscribe', 'NVDA', '1m');
     await session.receive('{oops');
     expect(socket.take()).toEqual([
       { type: 'subscribed', instrument: 'BTCUSD', timeframe: '5m' },
       { type: 'error', code: 'unknown_instrument', message: expect.stringContaining('unknown instrument "DOGE"') as string, instrument: 'DOGE', timeframe: '5m' },
-      { type: 'error', code: 'timeframe_not_served', message: expect.any(String) as string, instrument: 'BTCUSD', timeframe: '1D' },
+      { type: 'error', code: 'timeframe_not_served', message: expect.any(String) as string, instrument: 'NVDA', timeframe: '1D' },
       { type: 'error', code: 'timeframe_not_served', message: expect.any(String) as string, instrument: 'NVDA', timeframe: '1m' },
       { type: 'error', code: 'bad_parameter', message: expect.stringContaining('JSON') as string },
     ]);

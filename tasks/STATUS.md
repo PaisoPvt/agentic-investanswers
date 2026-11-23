@@ -6,7 +6,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 |---|---|---|---|---|
 | M0-01 | Monorepo skeleton | done | #1 | #47 |
 | M0-02 | CI on PRs | done | #2 | #47 |
-| M0-03 | docs/bar-rules.md | todo | #3 |  |
+| M0-03 | docs/bar-rules.md | done | #3 |  |
 | M0-04 | shared-kernel | done | #5 | #52 |
 | M0-05 | PR template, task cards and STATUS | done | #4 | #47 |
 | M0-06 | Claude Code automation | done | #6 | #47 |
@@ -18,7 +18,8 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-06 | Cook intraday rollups 1m → 5m/15m/1h/4h, incrementally (one new 1m updates only the affect | done | #12 | #62 |
 | M1-07 | Massive (stocks) backfill and live stream for 2 symbols, same ports as crypto | done | #13 | #72 |
 | M1-07b | Massive live stream (needs a plan with WebSocket, OI-28) | blocked | #71 |  |
-| M1-08 | Cook D/W/M and stock session-aware rollups (regular hours, holidays) | todo | #14 |  |
+| M1-08a | Crypto 1D, 1W and 1M: cooked, served and live | in review | #131 | #132 |
+| M1-08b | Stock session-aware rollups and stock D/W/M (needs OI-27) | blocked | #14 |  |
 | M1-09 | Gap detector + auto re-fetch (completeness check), per market hours | done | #15 | #73 |
 | M1-10 | Rebuild check | done | #16 | #69 |
 | M1-11 | Latency probe: minute close → raw stored → cooked, per symbol | done | #17 | #123 |
