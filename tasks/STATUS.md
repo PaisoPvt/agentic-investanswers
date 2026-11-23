@@ -47,9 +47,9 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-16 | Deploy the stack to the staging account | blocked | #114 |  |
 | M3-01 | IndicatorDefinition interface | done | #31 | #85 |
 | M3-02 | Settings schema → settings dialog (generated from the declared inputs, with range limits) | done | #32 | #86, #105 |
-| M3-03 | Indicator parity harness | in review (parity run waits for OI-30) | #33 | #133 |
+| M3-03 | Indicator parity harness | done, parity pending (OI-30) | #33 | #133 |
 | M3-04 | Indicator engine | done | #34 | #89 |
-| M3-05 | The MVP indicator (SMA) end to end (chart, dialog, output types) | in review (parity waits for OI-30, staging for OI-31) | #35 | #110 |
+| M3-05 | The MVP indicator (SMA) end to end (chart, dialog, output types) | done, parity pending (OI-30) | #35 | #110 |
 | M3-06 | Backtest engine (shared): trades, profit, ROI, win rate, totals | done, parity pending (OI-30) | #36 | #91 |
 | M3-07a | ATR port, slice 1: plotted values (agentic-investanswers-indicators) | Phase 1 | #37 |  |
 | M3-07b | ATR port, slice 2: signals | Phase 1 | #38 |  |
@@ -60,7 +60,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M4-03 | Read-only agent API endpoints | todo | #43 |  |
 | M4-04 | Usage and audit records for every human and agent request | done | #44 | #119 |
 | M4-05 | Freshness and speed dashboard (CloudWatch) against agreed targets | todo | #45 |  |
-| M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | in review | #46 | #128 |
+| M4-06 | MVP demo script + acceptance report (runs all four checks, prints pass/fail) | done | #46 | #128 |
 | UI-01 | Drawing tools panel (client UI feedback) | done | #116 | #117 |
 | UI-02 | Data freshness badge (client UI feedback) | done | #120 | #122 |
 | UI-03 | Import from TradingView: chart data and watchlists (client UI feedback) | done | #121 | #122 |
