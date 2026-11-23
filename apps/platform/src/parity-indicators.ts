@@ -48,7 +48,8 @@ async function main(): Promise<void> {
   const dir = option(args, 'fixtures', DEFAULT_DIR);
 
   const instrument = KNOWN_INSTRUMENTS.find((i) => i.symbol === symbol) ?? fail(`Unknown symbol ${symbol}`);
-  const base = join(dir, `${symbol.toLowerCase()}_${tf.toLowerCase()}_${id}`);
+  // File names are all lower case (docs/bar-rules.md), whatever the indicator id's case.
+  const base = join(dir, `${symbol.toLowerCase()}_${tf.toLowerCase()}_${id.toLowerCase()}`);
   const files = { chart: `${base}.csv`, trades: `${base}_trades.csv`, summary: `${base}_summary.csv` };
   const missing = Object.values(files).filter((f) => !existsSync(f));
   if (missing.length > 0) fail(`Missing TradingView exports (OI-30): ${missing.join(', ')}\nExport them as docs/bar-rules.md ("Indicator parity") describes.`);
