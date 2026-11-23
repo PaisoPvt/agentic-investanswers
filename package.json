@@ -14,6 +14,7 @@
     "agent-check": "tsx --env-file-if-exists=.env apps/platform/src/agent-check.ts",
     "check": "nx affected -t lint test typecheck",
     "parity": "tsx apps/hydration/src/parity.ts",
+    "parity:indicators": "tsx --env-file-if-exists=.env apps/platform/src/parity-indicators.ts",
     "backfill": "tsx --env-file-if-exists=.env apps/hydration/src/backfill.ts",
     "gaps": "tsx --env-file-if-exists=.env apps/hydration/src/gaps.ts",
     "live": "tsx --env-file-if-exists=.env apps/hydration/src/live.ts",

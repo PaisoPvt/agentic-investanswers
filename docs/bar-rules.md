@@ -120,3 +120,20 @@ Timeframe names in code stay as the glossary defines them (`1m`, `5m`, `15m`, `1
 | 1h | `1h` | 1M | `1mo` |
 
 **Why lower case, and why `1mo` for monthly.** macOS and Windows file systems are case-insensitive by default, so `NVDA_1m.csv` and `NVDA_1M.csv` are *the same file*: exporting one after the other silently leaves a single file, and the export set looks complete while the 1-minute bars are gone. Lower-case-only names cannot collide under case folding, and `1mo` keeps monthly distinct from 1-minute without relying on case. The loader maps tokens back to the canonical timeframe names.
+
+## Indicator parity (M3-03; exports from OI-30)
+`pnpm parity:indicators` checks the SMA demo strategy (and later any indicator) against TradingView's own run of the same Pine script. Our indicator and our backtest are fed **TradingView's exported bars**, as build parity is, so a difference can only be in our logic. Four checks, each exact at the precision TradingView shows, each reporting the first difference:
+1. **Plotted values to the tick:** each bar's output (for example `sma`) equals the export's plot of the same name at the instrument's price precision; warm-up bars are empty on both sides.
+2. **Signals:** our Long and Short markers equal the trades' entries. TradingView fills at the next bar's open, so each signal is the bar before its fill.
+3. **Trades:** side, entry and exit time and price, quantity and profit (to the cent), for every closed trade.
+4. **Totals:** the Performance summary's net profit, gross profit and loss, closed, winning and losing trades, percent profitable, profit factor and average trade, at the decimals the export shows.
+
+The export's last bar is skipped (still forming when saved), as everywhere else.
+
+**Making the three exports:** on `COINBASE:BTCUSD` 1h with OI-30's script and the chart's **time zone set to UTC**:
+- **Export chart data** (UNIX time) → `btcusd_1h_sma.csv`. It must include the "SMA" plot column.
+- Strategy Tester → List of trades → **Export** (CSV) → `btcusd_1h_sma_trades.csv`.
+- Strategy Tester → Performance summary → **Export** (CSV) → `btcusd_1h_sma_summary.csv`.
+
+Put them beside the bar exports, not committed while the repo is public. Then run `AIA_INDICATORS=../agentic-investanswers-indicators/src/index.ts pnpm parity:indicators`. The readers find columns by name, so if TradingView words a header differently, the error names it and the reader is adjusted, not the comparison.
+
