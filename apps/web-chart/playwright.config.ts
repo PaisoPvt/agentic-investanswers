@@ -13,6 +13,9 @@ const CHART_PORT = 4173;
 const SIGN_IN_PLATFORM_PORT = 8182;
 const SIGN_IN_CHART_PORT = 4174;
 const SIGN_IN_OUT_DIR = 'node_modules/.cache/e2e-sign-in';
+// The embed test page (M2-11) on an origin config/embed.json allows, and on one it does not.
+const EMBED_ALLOWED_PORT = 4175;
+const EMBED_OTHER_PORT = 4176;
 
 export default defineConfig({
   testDir: './e2e',
@@ -27,8 +30,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: '**/sign-in.e2e.ts' },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: ['**/sign-in.e2e.ts', '**/embed.e2e.ts'] },
     { name: 'sign-in', use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${SIGN_IN_CHART_PORT}` }, testMatch: '**/sign-in.e2e.ts' },
+    { name: 'embed', use: { ...devices['Desktop Chrome'] }, testMatch: '**/embed.e2e.ts' },
   ],
   webServer: [
     {
@@ -57,5 +61,10 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
     },
+    ...[EMBED_ALLOWED_PORT, EMBED_OTHER_PORT].map((port) => ({
+      command: `node embed-test/serve.mjs ${port}`,
+      url: `http://127.0.0.1:${port}`,
+      reuseExistingServer: false,
+    })),
   ],
 });

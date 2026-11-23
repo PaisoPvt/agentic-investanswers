@@ -35,4 +35,9 @@ describe('startingChoice', () => {
     expect(startingChoice(LIST, { instrument: 'DOGEUSD', timeframe: '1h' })).toEqual({ symbol: 'BTCUSD', timeframe: '1m' });
     expect(startingChoice(LIST, { instrument: 'NVDA', timeframe: '1h' })).toEqual({ symbol: 'BTCUSD', timeframe: '1m' });
   });
+
+  it('opens on what an embedding page asked for, ahead of the saved choice, where the plan includes it', () => {
+    expect(startingChoice(LIST, { instrument: 'ETHUSD', timeframe: '1h' }, { instrument: 'BTCUSD', timeframe: '5m' })).toEqual({ symbol: 'BTCUSD', timeframe: '5m' });
+    expect(startingChoice(LIST, { instrument: 'ETHUSD', timeframe: '1h' }, { instrument: 'NVDA' })).toEqual({ symbol: 'ETHUSD', timeframe: '1h' });
+  });
 });

@@ -27,6 +27,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import type { Construct } from 'constructs';
 
+import { frameAncestors, frameAncestorsPolicy } from './embed.js';
 import type { AiaEnvironment } from './environments.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -288,6 +289,23 @@ export class AiaStack extends Stack {
       ],
     });
 
+    // The chart's pages (M2-11): only the sites in config/embed.json may frame
+    // them (frame-ancestors). X-Frame-Options cannot name sites, so it is sent
+    // only when no other site is allowed, for browsers without CSP. The other
+    // headers are standard hardening. The platform's routes (JSON) are untouched.
+    const embedders = frameAncestors(environment.name);
+    const chartHeaders = new cloudfront.ResponseHeadersPolicy(this, 'ChartHeaders', {
+      responseHeadersPolicyName: `${prefix}-chart`,
+      comment: `${prefix}: who may frame the chart (config/embed.json), and hardening`,
+      securityHeadersBehavior: {
+        contentSecurityPolicy: { contentSecurityPolicy: frameAncestorsPolicy(embedders), override: true },
+        ...(embedders.length === 0 ? { frameOptions: { frameOption: cloudfront.HeadersFrameOption.SAMEORIGIN, override: true } } : {}),
+        contentTypeOptions: { override: true },
+        referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },
+        strictTransportSecurity: { accessControlMaxAge: Duration.days(365), override: true },
+      },
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Cdn', {
       comment: `${prefix}: chart and platform`,
       webAclId: waf.attrArn,
@@ -297,6 +315,7 @@ export class AiaStack extends Stack {
         origin: origins.S3BucketOrigin.withOriginAccessControl(chart),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: chartHeaders,
       },
       additionalBehaviors: Object.fromEntries(API_PATHS.map((path) => [path, api])),
     });

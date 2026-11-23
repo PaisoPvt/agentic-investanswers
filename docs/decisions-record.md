@@ -20,6 +20,11 @@ Where something we were waiting for has not arrived, so we use an agreed alterna
 - **Affects:** agent access (M4-01). A signed-in user creates a named agent key, shown once and stored only as a hash, and can revoke it at any time (up to 10 per account). The agent uses it like a sign-in token, reads on its user's plan, and is read-only: it cannot change the account, its keys or anything else.
 - **Closes when:** InvestAnswers confirms it can issue agent tokens, which then plug in behind the same interface.
 
+**F-05 · The embed is proven on our own test page until the client gives theirs** (2026-11-23, M2-11)
+- **Why:** the client's site address and a test page of theirs have not arrived (OI-34), and Sham asked to go ahead with our own.
+- **Affects:** the chart can be shown inside another site's page, and only the sites listed in `config/embed.json` may do so (the browser refuses everywhere else). Today no other site is listed for AWS dev, so the chart can be framed only by itself; locally, our test page proves both the allowed and the refused case.
+- **Closes when:** the client gives their site's address(es): they go into `config/embed.json` for staging and prod, then a deploy. No code change.
+
 ## Temporary decisions
 Choices made to keep progress going, each built so it can be swapped later without rework.
 
@@ -75,6 +80,11 @@ Choices made to keep progress going, each built so it can be swapped later witho
 - **Why:** the client asked for a sign of how fresh the data is; the freshness checker that measures each step on the server (M2-07) is not built yet.
 - **Affects:** the chart shows Live, Delayed (no update for 90 seconds, or the newest bar ended over 2 minutes ago), Stale (no update for 5 minutes) or Offline. It cannot tell a quiet market from a slow feed, and it does not know market hours yet (only crypto is served, T-04).
 - **Swap later:** the badge reads one small module with its limits in one place; M2-07's measured numbers, and market hours for stocks, can feed it without changing the badge.
+
+**T-13 · The chart is embedded with an iframe, not a web component** (2026-11-23, M2-11)
+- **Why:** an iframe keeps the chart on our own address: nothing of ours runs on the client's page, the sign-in token never touches it, no cross-site API access (CORS) is needed, and locking it to the client's site is one header. A web component would run our code inside their page and need all of those.
+- **Affects:** the client embeds the chart with one `<iframe>` tag; `?embed=1` gives a compact layout (pickers, chart, status) and `?symbol=` / `?timeframe=` choose what it opens on. Browsers that restrict storage inside frames from other sites (Safari, Firefox, Brave) make users sign in inside the frame, separately from the client's site; single sign-on waits for InvestAnswers sign-in (OI-21).
+- **Swap later:** a web component can be added beside the iframe if the client asks; the chart's data client is already framework-free (`apps/web-chart/src/index.ts`).
 
 ## Postponed decisions
 Open questions, what we assume meanwhile, and the latest date the answer is useful.

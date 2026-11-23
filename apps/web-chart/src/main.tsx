@@ -8,6 +8,7 @@ import { LiveConnection, browserSocket } from './data/live-connection.js';
 import { PlatformClient, storedToken } from './data/platform-client.js';
 import { App } from './ui/App.js';
 import { AuthGate } from './ui/AuthGate.js';
+import { embedOptions } from './ui/embed-options.js';
 import type { StateSource } from './ui/App.js';
 
 let state: ConnectionState = 'connecting';
@@ -31,7 +32,10 @@ const live = new LiveConnection({
   },
 });
 
+// Read once: an embedding page sets these in the iframe's URL (M2-11).
+const embed = embedOptions(window.location.search);
+
 const root = document.getElementById('root');
 if (root !== null) {
-  createRoot(root).render(<AuthGate client={client}>{(session) => <App client={client} live={live} connection={connection} session={session} />}</AuthGate>);
+  createRoot(root).render(<AuthGate client={client}>{(session) => <App client={client} live={live} connection={connection} session={session} embed={embed} />}</AuthGate>);
 }
