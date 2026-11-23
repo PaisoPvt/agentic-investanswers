@@ -18,7 +18,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-06 | Cook intraday rollups 1m → 5m/15m/1h/4h, incrementally (one new 1m updates only the affect | done | #12 | #62 |
 | M1-07 | Massive (stocks) backfill and live stream for 2 symbols, same ports as crypto | done | #13 | #72 |
 | M1-07b | Massive live stream (needs a plan with WebSocket, OI-28) | blocked | #71 |  |
-| M1-08a | Crypto 1D, 1W and 1M: cooked, served and live | in review | #131 | #132 |
+| M1-08a | Crypto 1D, 1W and 1M: cooked, served and live | done | #131 | #132 |
 | M1-08b | Stock session-aware rollups and stock D/W/M (needs OI-27) | blocked | #14 |  |
 | M1-09 | Gap detector + auto re-fetch (completeness check), per market hours | done | #15 | #73 |
 | M1-10 | Rebuild check | done | #16 | #69 |
@@ -28,7 +28,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M1-14 | Split parity: exact build parity, reported source fidelity | done | #67 | #68 |
 | M1-15 | M1 scale-out: no bottleneck or dead end in the live data path | done | #81 | #87, #90, #94 |
 | M1-16 | Data layer boundary: one data-access interface for the rest of the app | done | #82 | #102 |
-| M1-17 | Backfill re-cooks the months it changed | in review (AWS repair after deploy) | #129 | #130 |
+| M1-17 | Backfill re-cooks the months it changed | done | #129 | #130 |
 | M2-01 | CDK staging stack | done | #18 | #107 |
 | M2-02 | Cache layer | done | #19 | #77 |
 | M2-03 | History API | done | #20 | #79 |
@@ -43,7 +43,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-12 | Themes (light and dark) and mobile layout | todo | #29 |  |
 | M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | todo | #30 |  |
 | M2-14 | Chart sign-in screens | done | #108 | #109 |
-| M2-15 | Basic WAF rules in front of CloudFront | in review (deploy check after merge) | #113 | #118 |
+| M2-15 | Basic WAF rules in front of CloudFront | done | #113 | #118 |
 | M2-16 | Deploy the stack to the staging account | blocked | #114 |  |
 | M3-01 | IndicatorDefinition interface | done | #31 | #85 |
 | M3-02 | Settings schema → settings dialog (generated from the declared inputs, with range limits) | done | #32 | #86, #105 |
