@@ -24,13 +24,15 @@ import {
   CookedCompactor,
   CookedReader,
   FormingBars,
+  CALENDAR_ROLLUPS,
   INTRADAY_ROLLUPS,
+  cooksCalendar,
   LiveAnnouncer,
   LiveCook,
   RecentBars,
   barClosedEvents,
 } from '@aia/market-data';
-import type { Bar, Instrument, MarketCalendar, Timeframe } from '@aia/shared-kernel';
+import type { Bar, BarTime, Instrument, MarketCalendar, Timeframe } from '@aia/shared-kernel';
 import { addDays, barTime, zonedDateKey } from '@aia/shared-kernel';
 
 import { CACHED_TIMEFRAMES } from './cache.js';
@@ -93,23 +95,15 @@ export class LivePipeline {
 
   constructor(private readonly deps: LivePipelineDeps) {
     this.bySymbol = new Map(deps.instruments.map((i) => [i.symbol, i]));
-    // Stocks are not cooked until M1-08, so only their 1m bar forms.
-    this.forming = new Map(
-      deps.instruments.map((i) => [i.symbol, new FormingBars(i, i.kind === 'stock' ? [] : INTRADAY_ROLLUPS, deps.calendar)]),
-    );
+    // Stocks are not cooked until M1-08b, so only their 1m bar forms; crypto forms every timeframe (1D, 1W, 1M since M1-08a).
+    const cookedTimeframes = (i: Instrument): readonly Timeframe[] => (i.kind === 'stock' ? [] : [...INTRADAY_ROLLUPS, ...(cooksCalendar(i) ? CALENDAR_ROLLUPS : [])]);
+    this.forming = new Map(deps.instruments.map((i) => [i.symbol, new FormingBars(i, cookedTimeframes(i), deps.calendar)]));
     const cachedRaw = {
       getDay: (ref: RawDayRef) => deps.raw.getDay(ref),
       getLiveMinutes: (ref: RawDayRef) => this.liveDay(ref),
     };
     const minutes = new RawMinuteSource(cachedRaw, deps.rawProviderOf, deps.liveProviderOf);
     const calendar = deps.calendar === undefined ? {} : { calendar: deps.calendar };
-    // Stocks are not cooked until M1-08.
-    this.cooks = new Map(
-      deps.instruments
-        .filter((i) => i.kind !== 'stock')
-        .map((i) => [i.symbol, new LiveCook({ instrument: i, timeframes: INTRADAY_ROLLUPS, source: minutes, ...calendar })]),
-    );
-    this.compactor = new CookedCompactor({ cook: new CookIntraday({ source: minutes, store: deps.cooked, ...calendar }), watermarks: deps.watermarks });
     const reader = new CookedReader({
       store: deps.cooked,
       watermarks: deps.watermarks,
@@ -118,6 +112,14 @@ export class LivePipeline {
       nowMs: deps.nowMs,
       ...calendar,
     });
+    // Stocks are not cooked until M1-08b. 1W and 1M come from 1D bars, read through the reader.
+    const days = (symbol: string, from: BarTime, until: BarTime) => reader.getRange(symbol, '1D', from, until);
+    this.cooks = new Map(
+      deps.instruments
+        .filter((i) => i.kind !== 'stock')
+        .map((i) => [i.symbol, new LiveCook({ instrument: i, timeframes: cookedTimeframes(i), source: minutes, days, ...calendar })]),
+    );
+    this.compactor = new CookedCompactor({ cook: new CookIntraday({ source: minutes, store: deps.cooked, ...calendar }), watermarks: deps.watermarks });
     this.recent = new RecentBars({ cache: deps.cache, store: reader, minutes });
     this.announcer = new LiveAnnouncer(deps.bus, deps.publisher);
     this.sealer = deps.hours === undefined ? undefined : new LiveHourSealer(deps.hours);

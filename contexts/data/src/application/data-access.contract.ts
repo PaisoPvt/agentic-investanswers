@@ -49,7 +49,7 @@ export function dataAccessContract(name: string, make: ContractFactory): void {
       const { data } = await open();
       expect(data.instruments.map((i) => i.symbol)).toContain('BTCUSD');
       expect(data.whyNotServed(BTCUSD, '5m')).toBeUndefined();
-      expect(data.whyNotServed(BTCUSD, '1D')).toEqual(expect.any(String));
+      expect(data.whyNotServed(NVDA, '1D')).toEqual(expect.any(String));
       expect(data.whyNotServed(NVDA, '1m')).toEqual(expect.any(String));
     });
 

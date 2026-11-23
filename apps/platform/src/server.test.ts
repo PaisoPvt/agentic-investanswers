@@ -153,7 +153,7 @@ describe('GET /bars: errors', () => {
     ['/bars?instrument=BTCUSD&instrument=ETHUSD&tf=5m', 400, 'bad_parameter'],
     ['/bars?instrument=DOGEUSD&tf=5m', 404, 'unknown_instrument'],
     ['/bars?instrument=NVDA&tf=5m', 409, 'timeframe_not_served'],
-    ['/bars?instrument=BTCUSD&tf=1D', 409, 'timeframe_not_served'],
+    ['/bars?instrument=NVDA&tf=1D', 409, 'timeframe_not_served'],
     ['/nothing-here', 404, 'not_found'],
   ])('%s gives %i %s', async (url, status, code) => {
     await server();

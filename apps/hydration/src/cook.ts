@@ -8,7 +8,8 @@
 //   pnpm cook                                   BTCUSD and ETHUSD, 2024-11 to this month
 //   pnpm cook --symbol ETHUSD --from 2025-06-01 --until 2025-08-31
 //
-// 1D, 1W and 1M are not cooked until M1-08.
+// For crypto, 1D, 1W and 1M are cooked with them (M1-08a): 1D from the
+// minutes, 1W and 1M from 1D.
 //
 // Afterwards the recent-bars cache windows of the instruments cooked are
 // dropped (M2-02), since a re-cook can change bars they hold; the next read
@@ -43,8 +44,8 @@ function parse(): { instruments: Instrument[]; from: string; until: string } {
   const instruments = (values.symbol ?? []).map((symbol) => {
     const instrument = parityInstrument(symbol) ?? usage(`Unknown symbol: ${symbol}`);
     // Raw stock bars keep Massive's precision (4-place prices, 6-place
-    // volumes); turning them into whole-cent, whole-share bars is M1-08.
-    if (instrument.kind === 'stock') usage(`${symbol} is a stock; cooking stocks is M1-08`);
+    // volumes); turning them into whole-cent, whole-share bars is M1-08b.
+    if (instrument.kind === 'stock') usage(`${symbol} is a stock; cooking stocks is M1-08b`);
     return instrument;
   });
   const date = /^\d{4}-\d{2}-\d{2}$/;
@@ -75,7 +76,6 @@ async function main(): Promise<void> {
     }
     console.log(`  ${instrument.symbol}: ${total} bars written across ${months.length} months\n`);
   }
-  console.log('1D, 1W and 1M are not cooked yet (M1-08).');
   try {
     await dropCachedWindows(instruments.map((i) => i.symbol));
   } catch (error) {

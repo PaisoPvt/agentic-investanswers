@@ -104,8 +104,8 @@ describe('MCP tools', () => {
     const result = await (await connect(port, key)).callTool({ name: 'list_instruments', arguments: {} });
     expect(result.isError).toBeFalsy();
     expect(json(result)).toEqual([
-      { symbol: 'BTCUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h'], included: ['1h', '4h'] },
-      { symbol: 'ETHUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h'], included: [] },
+      { symbol: 'BTCUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M'], included: ['1h', '4h'] },
+      { symbol: 'ETHUSD', kind: 'crypto', timeframes: ['1m', '5m', '15m', '1h', '4h', '1D', '1W', '1M'], included: [] },
       { symbol: 'NVDA', kind: 'stock', timeframes: [], included: [] },
     ]);
   });

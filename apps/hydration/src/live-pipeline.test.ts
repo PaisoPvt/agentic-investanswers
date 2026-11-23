@@ -6,7 +6,7 @@
 
 import type { LiveHourStorePort, RawDayRef } from '@aia/hydration';
 import type { LiveBatch } from '@aia/market-data';
-import { CookedReader, INTRADAY_ROLLUPS, MemoryCookedWatermarks, MemoryLiveBarsBus, MemoryRecentBarsCache, rollUp } from '@aia/market-data';
+import { CALENDAR_ROLLUPS, CookedReader, INTRADAY_ROLLUPS, MemoryCookedWatermarks, MemoryLiveBarsBus, MemoryRecentBarsCache, rollUp } from '@aia/market-data';
 import type { Bar, BarTime, Instrument, Timeframe } from '@aia/shared-kernel';
 import { barTime, barTimeFromUtcParts, price, volume, zonedDateKey } from '@aia/shared-kernel';
 import { describe, expect, it } from 'vitest';
@@ -108,7 +108,8 @@ describe('LivePipeline storage work (M1-15)', () => {
     expect(cooked.gets).toBe(0);
     // Yet every minute was cooked and announced: its 1m bar and one bar per timeframe.
     expect(batches).toHaveLength(120);
-    expect(batches.every((b) => b.updates.filter((u) => !u.forming).length === 1 + INTRADAY_ROLLUPS.length)).toBe(true);
+    // One bar per timeframe: intraday, then 1D, 1W and 1M (M1-08a).
+    expect(batches.every((b) => b.updates.filter((u) => !u.forming).length === 1 + INTRADAY_ROLLUPS.length + CALENDAR_ROLLUPS.length)).toBe(true);
   });
 
   it('at the first minute of a new day, writes the day just ended once per timeframe and moves the watermark', async () => {
@@ -117,7 +118,8 @@ describe('LivePipeline storage work (M1-15)', () => {
     for (const t of day28) await live(t);
     expect(cooked.puts).toBe(0);
     await live(D28 + DAY); // 00:00 on the 29th
-    expect(cooked.puts).toBe(INTRADAY_ROLLUPS.length);
+    // Once per timeframe: intraday, then 1D, 1W and 1M (M1-08a).
+    expect(cooked.puts).toBe(INTRADAY_ROLLUPS.length + CALENDAR_ROLLUPS.length);
     expect(await watermarks.getWatermark('BTCUSD')).toBe(D28 + DAY);
     expect(logs.some((l) => l.includes('1 settled day(s) written'))).toBe(true);
 

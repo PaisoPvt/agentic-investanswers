@@ -9,11 +9,11 @@
 import { randomUUID } from 'node:crypto';
 
 import type { RedisCacheOptions, RedisLiveBarsBusOptions } from '@aia/market-data';
-import { INTRADAY_ROLLUPS, LiveAnnouncer, RedisLiveBarsBus, RedisRecentBarsCache } from '@aia/market-data';
+import { CALENDAR_ROLLUPS, INTRADAY_ROLLUPS, LiveAnnouncer, RedisLiveBarsBus, RedisRecentBarsCache } from '@aia/market-data';
 import type { Timeframe } from '@aia/shared-kernel';
 
 /** Every timeframe cached: 1m (from raw) and the cooked intraday ones. */
-export const CACHED_TIMEFRAMES: readonly Timeframe[] = ['1m', ...INTRADAY_ROLLUPS];
+export const CACHED_TIMEFRAMES: readonly Timeframe[] = ['1m', ...INTRADAY_ROLLUPS, ...CALENDAR_ROLLUPS];
 
 export function connectCache(
   options: Omit<RedisCacheOptions, 'url'> = {},
