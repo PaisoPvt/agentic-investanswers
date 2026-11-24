@@ -10,6 +10,8 @@
 //   app's own sign-in (M2-08) at /auth/*, with accounts and sessions in
 //   DynamoDB: AIA_DYNAMODB_ENDPOINT (the local one, http://127.0.0.1:8000;
 //   "aws" for AWS itself), AIA_USERS_TABLE (aia-users).
+//   Saved chart preferences (M2-13) live in the users table too; in memory
+//   under AIA_DEV_AUTH=1.
 //   AIA_AUDIT_TABLE (aia-audit): the usage and audit records (M4-04), in the
 //   same DynamoDB; kept in memory under AIA_DEV_AUTH=1.
 //   AIA_INDICATORS: the indicator modules to load (M3-05, load-indicators.ts),
@@ -30,6 +32,7 @@ import {
 } from '@aia/access';
 import { AuditLog, DynamoUsageRecordStore, MemoryUsageRecordStore, ensureAuditTable } from '@aia/audit';
 import { openLocalDataLayer } from '@aia/data';
+import { ChartPreferencesBook, DynamoPreferencesStore, MemoryPreferencesStore } from '@aia/preferences';
 import { IndicatorEngine, RedisIndicatorOutputCache } from '@aia/indicators';
 import { HistoryQuery, LiveGateway } from '@aia/serving';
 import { barTime } from '@aia/shared-kernel';
@@ -39,7 +42,7 @@ import type { IndicatorRunner } from './indicator-outputs.js';
 import { indicatorModules, loadIndicators } from './load-indicators.js';
 import { buildServer } from './server.js';
 
-/** Account and session stores in DynamoDB; locally the table is created if missing (CDK creates it in AWS). */
+/** Account, session and preferences stores in DynamoDB; locally the table is created if missing (CDK creates it in AWS). */
 async function usersStores(env: NodeJS.ProcessEnv) {
   const table = env['AIA_USERS_TABLE'] ?? 'aia-users';
   const endpoint = env['AIA_DYNAMODB_ENDPOINT'] ?? 'http://127.0.0.1:8000';
@@ -50,6 +53,7 @@ async function usersStores(env: NodeJS.ProcessEnv) {
     accounts: new DynamoAccountStore(client, table),
     sessions: new DynamoSessionStore(client, table),
     agentKeys: new DynamoAgentKeyStore(client, table),
+    preferences: new DynamoPreferencesStore(client, table),
   };
 }
 
@@ -88,7 +92,9 @@ async function main(): Promise<void> {
   });
   await data.subscribe(live);
 
-  const access = env['AIA_DEV_AUTH'] === '1' ? accessFromEnv(env) : accessFromEnv(env, await usersStores(env));
+  const users = env['AIA_DEV_AUTH'] === '1' ? undefined : await usersStores(env);
+  const access = users === undefined ? accessFromEnv(env) : accessFromEnv(env, users);
+  const preferences = new ChartPreferencesBook(users?.preferences ?? new MemoryPreferencesStore());
   console.log(access.description);
   // Per-user rate limits (M2-10), counted in the same Redis, so every platform process shares them.
   const counter = await RedisRateCounter.connect({
@@ -118,7 +124,7 @@ async function main(): Promise<void> {
     forming: (instrument, timeframe) => indicatorBars.forming(instrument, timeframe),
   };
   const audit = await auditLog(env);
-  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, indicatorRunner, audit, ...trustedProxies(env), now, logger: true });
+  const app = await buildServer({ history, access, live, limits, catalog: data, indicators, indicatorRunner, audit, preferences, ...trustedProxies(env), now, logger: true });
 
   const port = Number(env['AIA_PORT'] ?? 8080);
   const host = env['AIA_HOST'] ?? '127.0.0.1';

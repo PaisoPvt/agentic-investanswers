@@ -41,7 +41,7 @@ Updated by Claude at the start and end of each task (`/start-task`, `/handoff`) 
 | M2-10 | Safeguards | done | #27 | #99 |
 | M2-11 | Embed in the InvestAnswers site (iframe or web component), domain-locked | todo | #28 |  |
 | M2-12 | Themes (light and dark) and mobile layout | todo | #29 |  |
-| M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | todo | #30 |  |
+| M2-13 | Saved chart preferences in DynamoDB (last symbol, timeframe, theme) | in review | #30 | #135 |
 | M2-14 | Chart sign-in screens | done | #108 | #109 |
 | M2-15 | Basic WAF rules in front of CloudFront | done | #113 | #118 |
 | M2-16 | Deploy the stack to the staging account | blocked | #114 |  |

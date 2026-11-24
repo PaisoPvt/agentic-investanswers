@@ -16,6 +16,8 @@
 //               runner is given too
 //   /auth/*     the app's own sign-in (M2-08) and agent keys (M4-01), when configured;
 //               see auth-routes.ts and agent-key-routes.ts
+//   GET, PUT /preferences   the signed-in person's saved chart preferences (M2-13),
+//               when given; see preferences-route.ts
 //
 // Errors are `{ error: { code, message } }`. A plan refusal (403 forbidden)
 // adds `upgradeUrl`. A refused live subscription is a `forbidden` message on
@@ -26,6 +28,7 @@ import websocket from '@fastify/websocket';
 import type { Access, Principal } from '@aia/access';
 import type { AuditLog } from '@aia/audit';
 import type { DataAccess } from '@aia/data';
+import type { ChartPreferencesBook } from '@aia/preferences';
 import type { HistoryQuery, LiveGateway } from '@aia/serving';
 import { LIVE_MAX_CLIENT_MESSAGE } from '@aia/serving';
 import type { BarTime } from '@aia/shared-kernel';
@@ -40,6 +43,7 @@ import type { IndicatorRunner } from './indicator-outputs.js';
 import type { IndicatorCatalog } from './indicator-routes.js';
 import { mountIndicatorRoutes, mountOutputsRoute } from './indicator-routes.js';
 import { mountMcpRoute } from './mcp-route.js';
+import { mountPreferencesRoute } from './preferences-route.js';
 import type { Limits } from './rate-limit.js';
 import { refusedForRate } from './rate-limit.js';
 import { ReadQueries } from './read-queries.js';
@@ -60,6 +64,8 @@ export interface ServerDeps {
   readonly indicators?: IndicatorCatalog;
   /** Runs them (the indicator engine, M3-04), for POST /indicators/:id/outputs and the MCP tool (M3-05). */
   readonly indicatorRunner?: IndicatorRunner;
+  /** Saved chart preferences (M2-13), for GET and PUT /preferences; mounted when given. */
+  readonly preferences?: Pick<ChartPreferencesBook, 'load' | 'save'>;
   /** Per-user rate limits (M2-10); none when left out. */
   readonly limits?: Limits;
   /** Usage and audit records (M4-04): one per request, and GET /usage to read them back. None when left out. */
@@ -166,6 +172,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   mountMcpRoute(app, reads, principals, limits);
   if (deps.indicators !== undefined) mountIndicatorRoutes(app, deps.indicators, principals, limits);
   if (indicators !== undefined) mountOutputsRoute(app, reads, principals, limits);
+  if (deps.preferences !== undefined) mountPreferencesRoute(app, deps.preferences, principals, limits);
   if (deps.audit !== undefined) mountUsageRoute(app, deps.audit, principals, deps.access.agentKeys, limits);
 
   const live = deps.live;
