@@ -1,4 +1,4 @@
-# CLAUDE.md (agentic-investanswers)
+# CLAUDE.md (ia-ark-mono-repo)
 
 Agent-first analytics and charting platform for InvestAnswers. MVP is built Mon 2 Nov to Fri 27 Nov 2026; 30 Nov to 4 Dec is buffer and client review.
 Read before planning: `docs/architecture.md`, `docs/bar-rules.md`, `docs/glossary.md`, the task's card in `tasks/`, and the `AGENTS.md` of any context you touch. The plan is `docs/plan.md`; the task list is `docs/backlog.md`.
