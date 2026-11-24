@@ -211,6 +211,20 @@ describe('CloudFront', () => {
     expect(ofType('AWS::CloudFront::OriginAccessControl')).toHaveLength(1);
   });
 
+  it('lets only the sites in config/embed.json frame the chart (M2-11), and leaves platform routes alone', () => {
+    const distribution = ofType('AWS::CloudFront::Distribution')[0]?.[1].Properties['DistributionConfig'] as {
+      CacheBehaviors: { ResponseHeadersPolicyId?: unknown }[];
+      DefaultCacheBehavior: { ResponseHeadersPolicyId: { Ref: string } };
+    };
+    const policy = resources[distribution.DefaultCacheBehavior.ResponseHeadersPolicyId.Ref]?.Properties['ResponseHeadersPolicyConfig'] as {
+      SecurityHeadersConfig: { ContentSecurityPolicy: { ContentSecurityPolicy: string }; FrameOptions?: { FrameOption: string } };
+    };
+    // Dev lists no other site: only the chart itself, and X-Frame-Options for browsers without CSP.
+    expect(policy.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy).toBe("frame-ancestors 'self'");
+    expect(policy.SecurityHeadersConfig.FrameOptions?.FrameOption).toBe('SAMEORIGIN');
+    for (const behavior of distribution.CacheBehaviors) expect(behavior.ResponseHeadersPolicyId).toBeUndefined();
+  });
+
   it('covers every route the platform serves (apps/platform/src)', () => {
     const dir = fileURLToPath(new URL('../../apps/platform/src/', import.meta.url));
     const routes = new Set<string>();

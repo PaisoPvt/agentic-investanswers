@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Our stand-in for the client's page (M2-11; decision record F-05): a plain
+  page that shows the chart in an iframe, as the InvestAnswers site would.
+  The chart address comes from ?chart= (default: the e2e chart, compact,
+  ETHUSD 1h). Served by serve.mjs on a different origin from the chart.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Embed test page</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #f6f8fa; color: #1f2328; }
+      iframe { display: block; width: 100%; height: 560px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <h1>A site with the chart embedded</h1>
+    <p>The chart below is served from another address and shown in an iframe.</p>
+    <iframe id="chart" title="Chart" data-testid="embedded-chart"></iframe>
+    <script>
+      const chart = new URLSearchParams(location.search).get('chart') ?? 'http://127.0.0.1:4173/?embed=1&symbol=ETHUSD&timeframe=1h';
+      document.getElementById('chart').src = chart;
+    </script>
+  </body>
+</html>

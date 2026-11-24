@@ -1,0 +1,9 @@
+{
+  "$comment": "Which sites may show the chart inside their own pages (M2-11): origins (scheme, host and port, no path, no wildcard) per environment, sent as the Content-Security-Policy frame-ancestors header. The chart's own address is always allowed. An empty list means no other site can frame it. 'local' is the Vite servers and the e2e test page (http://127.0.0.1:4175); the client's site is added to staging and prod once they give it (owner input OI-34). Changing a list needs a deploy, no code change.",
+  "frameAncestors": {
+    "local": ["http://127.0.0.1:4175"],
+    "dev": [],
+    "staging": [],
+    "prod": []
+  }
+}

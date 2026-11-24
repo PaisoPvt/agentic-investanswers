@@ -10,6 +10,8 @@
 // report (browser only, never stored); a watchlist opens beside the chart.
 // Preferences (M2-13): the chart opens on the instrument and timeframe saved
 // for the account, and saves each new choice on the server.
+// Embedded (M2-11): `?embed=1` keeps only the pickers, the chart and the
+// status line; `?symbol=` and `?timeframe=` choose what it opens on.
 
 import type { ChartPreferencesDto, IndicatorSettingsDialog, IndicatorsResponse, InstrumentInfo, SettingsAccepted } from '@aia/client-contract';
 import type { Timeframe } from '@aia/shared-kernel';
@@ -36,6 +38,7 @@ import { FreshnessBadge } from './FreshnessBadge.js';
 import { NoteDialog } from './NoteDialog.js';
 import { WatchlistPanel } from './WatchlistPanel.js';
 import { SettingsDialog } from './SettingsDialog.js';
+import type { EmbedOptions } from './embed-options.js';
 import { defaultTimeframe, startingChoice } from './starting-choice.js';
 import { Toolbar } from './Toolbar.js';
 
@@ -51,6 +54,8 @@ export interface AppProps {
   readonly connection: StateSource;
   /** The signed-in account; none in developer access. */
   readonly session?: Session | undefined;
+  /** Inside another site's page (M2-11); the full chart when left out. */
+  readonly embed?: EmbedOptions | undefined;
 }
 
 /** Keys typed into a field or a dialog are not chart shortcuts. */
@@ -83,7 +88,8 @@ function reportText(report: MatchReport | undefined, precision: number): string 
 /** How long the chart waits after the last change before saving preferences. */
 const SAVE_AFTER_MS = 1_000;
 
-export function App({ client, live, connection, session }: AppProps) {
+export function App({ client, live, connection, session, embed }: AppProps) {
+  const compact = embed?.compact === true;
   const [instruments, setInstruments] = useState<readonly InstrumentInfo[]>();
   const [failure, setFailure] = useState<string>();
   const [symbol, setSymbol] = useState<string>();
@@ -136,7 +142,7 @@ export function App({ client, live, connection, session }: AppProps) {
         if (!current) return;
         setInstruments(list);
         theme.current = preferences.theme;
-        const choice = startingChoice(list, preferences);
+        const choice = startingChoice(list, preferences, embed?.requested);
         if (choice !== undefined) {
           lastSaved.current = `${choice.symbol}/${choice.timeframe ?? ''}`;
           setSymbol(choice.symbol);
@@ -148,7 +154,7 @@ export function App({ client, live, connection, session }: AppProps) {
     return () => {
       current = false;
     };
-  }, [client]);
+  }, [client, embed]);
 
   // Each new choice is saved once the trader pauses; a failed save never stops the chart.
   useEffect(() => {
@@ -245,7 +251,7 @@ export function App({ client, live, connection, session }: AppProps) {
   if (instrument === undefined || timeframe === undefined) return <p className="message">No instrument is available on your plan.</p>;
 
   return (
-    <div className="app">
+    <div className={compact ? 'app embed' : 'app'} data-embed={compact}>
       <Toolbar
         instruments={instruments}
         instrument={instrument}
@@ -255,7 +261,7 @@ export function App({ client, live, connection, session }: AppProps) {
         indicators={indicators}
         onIndicator={openIndicator}
         session={session}
-        onImport={() => fileInput.current?.click()}
+        {...(compact ? {} : { onImport: () => fileInput.current?.click() })}
       />
       <input
         ref={fileInput}
@@ -330,7 +336,7 @@ export function App({ client, live, connection, session }: AppProps) {
         </div>
       )}
       <div className="workspace">
-        <DrawingPanel layer={drawings} />
+        {!compact && <DrawingPanel layer={drawings} />}
         <ChartView
           client={client}
           live={live}
@@ -344,7 +350,7 @@ export function App({ client, live, connection, session }: AppProps) {
           imported={imported}
           onImportReport={setImportReport}
         />
-        {watchlist !== undefined && (
+        {!compact && watchlist !== undefined && (
           <WatchlistPanel
             watchlist={watchlist}
             available={instruments.filter((i) => i.included.length > 0).map((i) => i.symbol)}
