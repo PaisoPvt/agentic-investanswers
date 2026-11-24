@@ -95,4 +95,4 @@ You create the four roles in the table above yourself, and either:
 
 ## Later: deploys from GitHub instead of a person
 
-One role per account, for example `aia-github-deploy-dev`, trusted only by this repository's `dev` branch through GitHub's OpenID Connect provider (`token.actions.githubusercontent.com`, audience `sts.amazonaws.com`, subject `repo:PaisoPvt/agentic-investanswers:ref:refs/heads/dev`), allowed only `sts:AssumeRole` on the four CDK roles above plus the chart publishing rights. Deploys then run on merge and nobody needs personal deploy rights.
+One role per account, for example `aia-github-deploy-dev`, trusted only by this repository's `dev` branch through GitHub's OpenID Connect provider (`token.actions.githubusercontent.com`, audience `sts.amazonaws.com`, subject `repo:arctic-ia/ia-ark-mono-repo:ref:refs/heads/dev`), allowed only `sts:AssumeRole` on the four CDK roles above plus the chart publishing rights. Deploys then run on merge and nobody needs personal deploy rights.
