@@ -19,7 +19,7 @@ import { ENVIRONMENTS } from './environments.js';
 import type { AiaEnvironment } from './environments.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const ONE_OFF = new Set(['backfill', 'gaps', 'cook']);
+const ONE_OFF = new Set(['backfill', 'gaps', 'cook', 'rebuild-check']);
 const USAGE = 'Usage: pnpm aws <deploy|secret|task|logs> <environment> [...]';
 
 function fail(message: string): never {
