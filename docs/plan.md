@@ -36,7 +36,7 @@ The deferred items keep the same boundaries, so adding them later doesn't mean r
 This means about 11 tasks a week instead of 9, so you need **3 lanes (3 worktrees) running most days**.
 
 ### Prep: Thu 29 Oct to Sun 1 Nov (you, about 1 day)
-- Create GitHub repos `agentic-investanswers` and `agentic-investanswers-indicators` (private, restricted). Protect `main` (PR required, CI required).
+- Create GitHub repos `agentic-investanswers` (now `arctic-ia/ia-ark-mono-repo`) and `agentic-investanswers-indicators` (private, restricted). Protect `main` (PR required, CI required).
 - Get provider API keys (CoinAPI, Massive) and download the TradingView exports for BTC, ETH and 2 stocks, every timeframe from 1m to 1M.
 - Install Docker locally (MinIO for S3, DynamoDB Local, Redis) until AWS access arrives.
 - Write your notes for `docs/bar-rules.md` (backlog task M0-03); Claude will format them.

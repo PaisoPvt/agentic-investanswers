@@ -1,4 +1,6 @@
-# agentic-investanswers
+# ia-ark-mono-repo
+
+Repository: https://github.com/arctic-ia/ia-ark-mono-repo (formerly `PaisoPvt/agentic-investanswers`, and before that `agentic-investanswers`; GitHub redirects the old addresses). Indicator source lives in the private `agentic-investanswers-indicators` repository (CLAUDE.md rule 5).
 
 Agent-first analytics and charting platform for InvestAnswers. MVP: 2 Nov to 27 Nov 2026, buffer and client review 30 Nov to 4 Dec.
 
